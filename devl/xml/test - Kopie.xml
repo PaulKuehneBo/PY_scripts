@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<shiporder xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="shiporder.xsd">
+
+    <div ccesskey="" aria-colcount=""/>
+    <shipto name="A"/>
+    <shipto name="B"/>
+    <shipto name=""/>
+    <shipto name=""/>
+    <note/>
+    <dialog/>
+    <shipto/>
+    <shiporder/>
+    <address lang="EN" type="integer">
+        <name/>
+    </address>
+    <address lang="GE">
+        <name>Joe Tester</name>
+        <street>Baker street 5</street>
+    </address>
+    <address section="spion">
+        <name type="string">Joe Tester</name>
+        <street>Baker street 5</street>
+    </address>
+</shiporder>

@@ -1,0 +1,51 @@
+{
+    "files.autoSave": "onFocusChange",
+    "python.formatting.autopep8Args": ["--max-line-length", "120", "--experimental"],
+    "[python]": {
+        "editor.tabSize": 4,
+        "editor.insertSpaces": true,
+        "editor.formatOnSave": true
+    },
+    "workbench.tree.indent": 18,
+    "workbench.tree.renderIndentGuides": "always",
+    "editor.semanticHighlighting.enabled": true,
+    "editor.mouseWheelZoom": true,
+
+    "workbench.colorCustomizations": {
+        "editor.background": "#000000",            
+        "sideBar.background": "#000000",
+        "scrollbarSlider.hoverBackground": "#035032",
+        "sideBar.border": "#0d00ff",
+        "toolbar.activeBackground": "#ff0000",
+        "editorGroup.border": "#0d00ff",
+        "_terminal.background": "#aaaaaa",
+        "_terminal.foreground": "#080680",
+        "panel.border": "#0d00ff",
+        "panelTitle.activeForeground": "#08b611",
+        "panelTitle.inactiveForeground": "#999999",
+        "editor.foldBackground": "#000000",
+        "titleBar.border": "#00ff37",
+        "titleBar.activeBackground": "#035032",
+        "_tab.activeBorder": "#ff0000",
+        "tree.indentGuidesStroke": "#f3a552",
+        "tab.activeForeground": "#ff0000",
+        "tab.inactiveForeground": "#a6b18a",
+        "sideBarSectionHeader.border": "#0d00ff",
+        "sideBarSectionHeader.background": "#c2c1c1",
+        "sideBarSectionHeader.foreground": "#584402",
+        "sideBarTitle.foreground": "#ff0000",
+        "tab.activeBorderTop": "#ff0000",
+        "tab.inactiveBackground": "#424242",
+        "editorWidget.border": "#ff0000",
+    },
+    "python.pythonPath": "C:\\Users\\Wunstorf\\anaconda3\\envs\\gl\\python.exe",
+    "python.formatting.provider": "black",
+    "python-envs.pythonProjects": [
+        {
+            "path": ".",
+            "envManager": "ms-python.python:conda",
+            "packageManager": "ms-python.python:conda"
+        }
+    ],
+
+}

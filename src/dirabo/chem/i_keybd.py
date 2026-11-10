@@ -2,13 +2,12 @@
 
 from typing import Any
 
-from vpython import color, scene, vector
+from vpython import scene, vector
 
 from dirabo.chem.particles import (
     Atom,
     ELECTRON_DISPLAY_RADIUS,
     Electron,
-    Molecule,
     MoleculeCluster,
     NuclearTrace,
 )

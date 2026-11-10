@@ -7,3 +7,10 @@
 !src/**
 !devl/
 !devl/**
+
+# Re-ignore CPython directories, even inside allowed folders.
+**/__pycache__/
+**/*.pyc
+**/*.pyd
+**/build/
+**/dist/

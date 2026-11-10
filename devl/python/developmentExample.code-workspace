@@ -1,0 +1,74 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"editor.semanticHighlighting.enabled": true,
+		"editor.suggest.showCustomcolors": true,
+		"editor.semanticTokenColorCustomizations": {"enabled": true,
+			 "rules": {
+				 "class": "#0051ff",
+				 "*.decorator": "#09ff00",
+				 "selfParameter": "#0051ff",
+				 "clsParameter": "##0051ff",
+				 "meta.attribute.python": "#00FF00",
+				},
+			 
+			},
+		"editor.tokenColorCustomizations": { 
+			"textMateRules": [
+				{
+					"scope":"meta.member.access.python",
+					"settings": {
+						"foreground": "#ff00f2"
+					}
+				},
+				{
+					"scope":"meta.definition.variable.name",
+					"settings": {
+						"foreground": "#00ff15"
+					}				
+				},
+				{
+					"scope":"meta.function-call.python",
+					"settings": {
+						"foreground": "#ffae00"
+					}				
+				},
+			],
+			""			
+		},
+		"files.autoSave": "onFocusChange",
+		"workbench.tree.indent": 18,
+		"workbench.tree.renderIndentGuides": "always",
+		"workbench.colorCustomizations": {
+			"editor.background": "#000000",
+			"sideBar.background": "#000000",
+			"scrollbarSlider.hoverBackground": "#035032",
+			"sideBar.border": "#0d00ff",
+			"toolbar.activeBackground": "#ff0000",
+			"editorGroup.border": "#0d00ff",
+			"_terminal.background": "#aaaaaa",
+			"_terminal.foreground": "#080680",
+			"panel.border": "#0d00ff",
+			"panelTitle.activeForeground": "#08b611",
+			"panelTitle.inactiveForeground": "#999999",
+			"editor.foldBackground": "#000000",
+			"titleBar.border": "#00ff37",
+			"titleBar.activeBackground": "#035032",
+			"_tab.activeBorder": "#ff0000",
+			"tree.indentGuidesStroke": "#f3a552",
+			"tab.activeForeground": "#ff0000",
+			"tab.inactiveForeground": "#a6b18a",
+			"sideBarSectionHeader.border": "#0d00ff",
+			"sideBarSectionHeader.background": "#c2c1c1",
+			"sideBarSectionHeader.foreground": "#584402",
+			"sideBarTitle.foreground": "#ff0000",
+			"tab.activeBorderTop": "#ff0000",
+			"tab.inactiveBackground": "#424242",
+			"editorWidget.border": "#ff0000"
+		}
+	}
+}
