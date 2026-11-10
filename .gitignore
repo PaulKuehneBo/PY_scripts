@@ -1,0 +1,9 @@
+# Ignore everything unless explicitly allowed below.
+*
+
+# Allow the Git ignore file and these directories, including their contents.
+!.gitignore
+!src/
+!src/**
+!devl/
+!devl/**
