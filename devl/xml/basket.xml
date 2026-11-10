@@ -1,8 +1,0 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Basket xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="basket.xsd" language="en-AU" sold="true" time="03:25:51">
-
-  <Basket sold="" language=""/>
-  <fruit ></fruit>
-  <!-- comment -->
-  <![CDATA[this ios some data]]>
-</Basket>
