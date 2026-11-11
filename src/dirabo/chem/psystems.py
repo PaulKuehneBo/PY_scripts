@@ -61,9 +61,10 @@ PERIODIC_SYSTEM = MappingProxyType(
             electron_radius=1.02,
             display_radius=0.36,
             lone_pair_directions=tuple(
-                (direction_at_angle(angle, -0.38), direction_at_angle(angle, 0.38)) for angle in (30, 150, 270)
+                (direction_at_angle(angle, -0.38), direction_at_angle(angle, 0.38))
+                for angle in (45, 135, 225, 315)
             ),
-            default_lone_pair_count=3,
+            default_lone_pair_count=4,
         ),
         "N": ElementProperties(
             symbol="N",
@@ -227,6 +228,7 @@ def sodium(
     *,
     lone_pair_count: int | None = None,
     free_electron_directions: tuple[Vec3, ...] = (),
+    nuclear_charge_override: float | None = None,
 ) -> ElementParticles:
     """Erzeugt Natrium anhand der Elementdaten."""
     return create_element(
@@ -235,6 +237,7 @@ def sodium(
         position,
         lone_pair_count=lone_pair_count,
         free_electron_directions=free_electron_directions,
+        nuclear_charge_override=nuclear_charge_override,
     )
 
 
@@ -244,6 +247,7 @@ def chlorine(
     *,
     lone_pair_count: int | None = None,
     free_electron_directions: tuple[Vec3, ...] = (),
+    nuclear_charge_override: float | None = None,
 ) -> ElementParticles:
     """Erzeugt Chlor anhand der Elementdaten."""
     return create_element(
@@ -252,6 +256,7 @@ def chlorine(
         position,
         lone_pair_count=lone_pair_count,
         free_electron_directions=free_electron_directions,
+        nuclear_charge_override=nuclear_charge_override,
     )
 
 

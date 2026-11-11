@@ -12,6 +12,13 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "Python: devl Salzkristall",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/devl/molecular/molecular_na_cl.py",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Python: devl Moleküle H2O",
             "type": "debugpy",
             "request": "launch",

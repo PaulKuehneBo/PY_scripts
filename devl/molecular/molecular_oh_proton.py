@@ -44,4 +44,5 @@ if __name__ == "__main__":
     # eine künstliche Verstärkung der Kern-Kern-Abstoßung.
     simulation_parameters.BROWNIAN_VELOCITY_AMPLITUDE = EXPERIMENT_BROWNIAN_VELOCITY_AMPLITUDE
 
+    # wie interagiert ein Proton mit einer Hydroxidgruppe?
     show_molecules(create_oh_proton_system())
