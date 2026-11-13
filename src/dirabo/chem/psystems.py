@@ -30,7 +30,7 @@ PERIODIC_SYSTEM = MappingProxyType(
     {
         "H": ElementProperties(
             symbol="H",
-            nuclear_charge=2.0,
+            nuclear_charge=1.0,
             core_mass=1.008,
             electron_radius=0.30,
             display_radius=0.20,
@@ -38,7 +38,7 @@ PERIODIC_SYSTEM = MappingProxyType(
         ),
         "O": ElementProperties(
             symbol="O",
-            nuclear_charge=8.0,
+            nuclear_charge=6.0,
             core_mass=15.999,
             electron_radius=0.48,
             display_radius=0.32,
@@ -52,7 +52,7 @@ PERIODIC_SYSTEM = MappingProxyType(
         ),
         "Na": ElementProperties(
             symbol="Na",
-            nuclear_charge=11.0,
+            nuclear_charge=1.0,
             core_mass=22.990,
             electron_radius=1.66,
             display_radius=0.42,
@@ -60,7 +60,7 @@ PERIODIC_SYSTEM = MappingProxyType(
         ),
         "Cl": ElementProperties(
             symbol="Cl",
-            nuclear_charge=17.0,
+            nuclear_charge=7.0,
             core_mass=35.45,
             electron_radius=1.02,
             display_radius=0.36,
@@ -72,7 +72,7 @@ PERIODIC_SYSTEM = MappingProxyType(
         ),
         "N": ElementProperties(
             symbol="N",
-            nuclear_charge=7.0,
+            nuclear_charge=5.0,
             core_mass=14.007,
             electron_radius=0.71,
             display_radius=0.30,
