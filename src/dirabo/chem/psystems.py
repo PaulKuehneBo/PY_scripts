@@ -66,8 +66,7 @@ PERIODIC_SYSTEM = MappingProxyType(
             display_radius=0.36,
             color=(0.0, 1.0, 0.0),
             lone_pair_directions=tuple(
-                (direction_at_angle(angle, -0.38), direction_at_angle(angle, 0.38))
-                for angle in (45, 135, 225, 315)
+                (direction_at_angle(angle, -0.38), direction_at_angle(angle, 0.38)) for angle in (45, 135, 225, 315)
             ),
             default_lone_pair_count=4,
         ),
@@ -77,7 +76,7 @@ PERIODIC_SYSTEM = MappingProxyType(
             core_mass=14.007,
             electron_radius=0.71,
             display_radius=0.30,
-            color=(1.0, 1.0, 1.0),
+            color=(1.0, 1.0, 0.0),
             lone_pair_directions=((direction_at_angle(90, -0.38), direction_at_angle(90, 0.38)),),
             default_lone_pair_count=1,
         ),
