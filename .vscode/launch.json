@@ -12,6 +12,20 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "Python: devl Benzol",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/devl/molecular/molecular_benzene.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: devl Alkohol",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/devl/molecular/molecular_ethanol.py",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Python: devl Salzkristall",
             "type": "debugpy",
             "request": "launch",

@@ -14,6 +14,7 @@ class ElementProperties:
     core_mass: float
     electron_radius: float
     display_radius: float
+    color: Vec3 = (1.0, 1.0, 1.0)
     lone_pair_directions: tuple[tuple[Vec3, Vec3], ...] = ()
     default_lone_pair_count: int = 0
 
@@ -33,6 +34,7 @@ PERIODIC_SYSTEM = MappingProxyType(
             core_mass=1.008,
             electron_radius=0.30,
             display_radius=0.20,
+            color=(1.0, 1.0, 1.0),
         ),
         "O": ElementProperties(
             symbol="O",
@@ -40,6 +42,7 @@ PERIODIC_SYSTEM = MappingProxyType(
             core_mass=15.999,
             electron_radius=0.48,
             display_radius=0.32,
+            color=(1.0, 0.0, 0.0),
             lone_pair_directions=(
                 (direction_at_angle(150, -0.38), direction_at_angle(150, 0.38)),
                 (direction_at_angle(255, -0.38), direction_at_angle(255, 0.38)),
@@ -53,6 +56,7 @@ PERIODIC_SYSTEM = MappingProxyType(
             core_mass=22.990,
             electron_radius=1.66,
             display_radius=0.42,
+            color=(1.0, 0.6, 0.0),
         ),
         "Cl": ElementProperties(
             symbol="Cl",
@@ -60,6 +64,7 @@ PERIODIC_SYSTEM = MappingProxyType(
             core_mass=35.45,
             electron_radius=1.02,
             display_radius=0.36,
+            color=(0.0, 1.0, 0.0),
             lone_pair_directions=tuple(
                 (direction_at_angle(angle, -0.38), direction_at_angle(angle, 0.38))
                 for angle in (45, 135, 225, 315)
@@ -72,6 +77,7 @@ PERIODIC_SYSTEM = MappingProxyType(
             core_mass=14.007,
             electron_radius=0.71,
             display_radius=0.30,
+            color=(1.0, 1.0, 1.0),
             lone_pair_directions=((direction_at_angle(90, -0.38), direction_at_angle(90, 0.38)),),
             default_lone_pair_count=1,
         ),
@@ -81,9 +87,16 @@ PERIODIC_SYSTEM = MappingProxyType(
             core_mass=12.011,
             electron_radius=0.76,
             display_radius=0.30,
+            color=(0.3, 0.3, 0.3),
         ),
     }
 )
+
+
+def get_color(element: str) -> Vec3:
+    """Gibt die RGB-Farbe eines Elements zurück, unbekannte Elemente sind weiß."""
+    properties = PERIODIC_SYSTEM.get(element)
+    return (1.0, 1.0, 1.0) if properties is None else properties.color
 
 
 def create_atom(

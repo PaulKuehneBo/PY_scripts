@@ -1,17 +1,34 @@
 from __future__ import annotations
 
-from typing import Any
-
 from collections import deque
 from dataclasses import dataclass, field
-
-from random import gauss
+from functools import lru_cache
 from math import sqrt
-from .math import Vec3, add, subtract, scale, dot, cross, length, remove_radial_velocity
+from random import gauss
+from typing import Any
+
+import numpy as np
+
+from .math import (
+    Vec3,
+    add,
+    cross,
+    direction_towards,
+    dot,
+    length,
+    remove_radial_velocity,
+    scale,
+    subtract,
+)
 
 ELECTRON_DISPLAY_RADIUS = 0.055
 NUCLEUS_REPULSION_FACTOR = 1.0
 BOND_MINIMUM_LENGTH = 0.22
+
+
+@lru_cache(maxsize=32)
+def _upper_triangle_indices(particle_count: int) -> tuple[np.ndarray, np.ndarray]:
+    return np.triu_indices(particle_count, 1)
 
 
 @dataclass
@@ -136,6 +153,61 @@ class Bond:
             raise ValueError(f"Beide Elektronen müssen auf Bindung {self.bond_id} verweisen")
 
 
+def create_bond(
+    bond_id: str,
+    first_atom: Atom,
+    second_atom: Atom,
+    *,
+    electron_ids: tuple[str, str] | None = None,
+    electron_z_offsets: tuple[float, float] = (-0.12, 0.12),
+    orbit_directions: tuple[float, float] = (1.0, -1.0),
+    electron_direction_offsets: tuple[Vec3, Vec3] = ((0.0, 0.0, 0.0), (0.0, 0.0, 0.0)),
+) -> Bond:
+    """Erzeugt eine Bindung mit je einem Elektron an beiden Atomkernen."""
+    first_electron_id, second_electron_id = (
+        (f"{bond_id}:e1", f"{bond_id}:e2")
+        if electron_ids is None
+        else electron_ids
+    )
+    first_z_offset, second_z_offset = electron_z_offsets
+    first_orbit_direction, second_orbit_direction = orbit_directions
+    first_direction_offset, second_direction_offset = electron_direction_offsets
+
+    return Bond(
+        bond_id,
+        (
+            Electron(
+                first_electron_id,
+                first_atom.atom_id,
+                add(
+                    direction_towards(
+                        first_atom.position,
+                        second_atom.position,
+                        first_z_offset,
+                    ),
+                    first_direction_offset,
+                ),
+                bond_id=bond_id,
+                orbit_direction=first_orbit_direction,
+            ),
+            Electron(
+                second_electron_id,
+                second_atom.atom_id,
+                add(
+                    direction_towards(
+                        second_atom.position,
+                        first_atom.position,
+                        second_z_offset,
+                    ),
+                    second_direction_offset,
+                ),
+                bond_id=bond_id,
+                orbit_direction=second_orbit_direction,
+            ),
+        ),
+    )
+
+
 @dataclass
 class ParticleState:
     particle_id: str
@@ -255,94 +327,250 @@ class CoulombForceModel:
         *,
         inter_molecular_bond_forces_enabled: bool = True,
     ) -> ForceTotals:
-        particle_forces = {particle.particle_id: (0.0, 0.0, 0.0) for particle in particles}
-        nucleus_repulsions = {
-            particle.atom_id: (0.0, 0.0, 0.0) for particle in particles if particle.particle_type == "nucleus"
-        }
-        nucleus_electron_forces = {atom_id: (0.0, 0.0, 0.0) for atom_id in nucleus_repulsions}
+        particle_count = len(particles)
+        particle_ids = tuple(particle.particle_id for particle in particles)
+        nucleus_indices = np.fromiter(
+            (index for index, particle in enumerate(particles) if particle.particle_type == "nucleus"),
+            dtype=np.intp,
+        )
+        nucleus_atom_ids = tuple(particles[index].atom_id for index in nucleus_indices)
+        if particle_count < 2:
+            zero_forces = {particle_id: (0.0, 0.0, 0.0) for particle_id in particle_ids}
+            zero_nucleus_forces = {atom_id: (0.0, 0.0, 0.0) for atom_id in nucleus_atom_ids}
+            return ForceTotals(zero_forces, zero_nucleus_forces, zero_nucleus_forces.copy())
+
+        positions = np.asarray([particle.position for particle in particles], dtype=np.float64)
+        charges = np.asarray([particle.charge for particle in particles], dtype=np.float64)
+        is_electron = np.fromiter(
+            (particle.particle_type == "electron" for particle in particles),
+            dtype=np.bool_,
+            count=particle_count,
+        )
+        atom_ids = tuple(particle.atom_id for particle in particles)
+        molecule_ids = tuple(particle.molecule_id for particle in particles)
+        bond_ids = tuple(particle.bond_id for particle in particles)
+        pair_ids = tuple(particle.pair_id for particle in particles)
+        atom_index_by_id = {atom_id: index for index, atom_id in enumerate(atom_ids)}
+        atom_indices = np.fromiter((atom_index_by_id[atom_id] for atom_id in atom_ids), dtype=np.intp)
+        molecule_indices = np.fromiter(
+            (-1 if molecule_id is None else molecule_id for molecule_id in molecule_ids),
+            dtype=np.int64,
+        )
+        nuclear_radii = np.asarray(
+            [np.nan if particle.nuclear_radius is None else particle.nuclear_radius for particle in particles],
+            dtype=np.float64,
+        )
+        electron_radii = np.asarray(
+            [np.nan if particle.electron_radius is None else particle.electron_radius for particle in particles],
+            dtype=np.float64,
+        )
+        parent_nuclear_radii = np.asarray(
+            [
+                np.nan if particle.parent_nuclear_radius is None else particle.parent_nuclear_radius
+                for particle in particles
+            ],
+            dtype=np.float64,
+        )
+        parent_nucleus_positions = np.asarray(
+            [
+                particle.position
+                if particle.parent_nucleus_position is None
+                else particle.parent_nucleus_position
+                for particle in particles
+            ],
+            dtype=np.float64,
+        )
+        bond_minimum_lengths = np.fromiter(
+            (particle.bond_minimum_length for particle in particles),
+            dtype=np.float64,
+            count=particle_count,
+        )
+
+        first_indices, second_indices = _upper_triangle_indices(particle_count)
+        first_is_electron = is_electron[first_indices]
+        second_is_electron = is_electron[second_indices]
+        is_electron_nucleus = first_is_electron != second_is_electron
+        is_nucleus_nucleus = ~first_is_electron & ~second_is_electron
+        first_molecule_indices = molecule_indices[first_indices]
+        second_molecule_indices = molecule_indices[second_indices]
+        is_inter_molecular = (
+            (first_molecule_indices >= 0)
+            & (second_molecule_indices >= 0)
+            & (first_molecule_indices != second_molecule_indices)
+        )
+        electron_indices = np.where(first_is_electron, first_indices, second_indices)
+        electron_is_bonded = np.fromiter(
+            (bond_ids[index] is not None for index in electron_indices),
+            dtype=np.bool_,
+            count=len(first_indices),
+        )
+        same_atom = atom_indices[first_indices] == atom_indices[second_indices]
+        skip_electron_nucleus = is_electron_nucleus & (
+            (~is_inter_molecular & (electron_is_bonded | same_atom))
+            | (is_inter_molecular & electron_is_bonded & (not inter_molecular_bond_forces_enabled))
+        )
+        active_pairs = ~skip_electron_nucleus
+
+        displacements = positions[first_indices] - positions[second_indices]
+        distances_squared = np.einsum("ij,ij->i", displacements, displacements)
         softening_squared = self.softening * self.softening
+        softened_distances_squared = distances_squared + softening_squared
+        charge_products = charges[first_indices] * charges[second_indices]
+        force_scales = self.strength * charge_products / (
+            softened_distances_squared * np.sqrt(softened_distances_squared)
+        )
 
-        for index, first in enumerate(particles):
-            for second in particles[index + 1 :]:
-                interaction = _interaction_type(first, second)
-                is_inter_molecular = False
-                if interaction == "electron-nucleus":
-                    nucleus, electron = (first, second) if first.particle_type == "nucleus" else (second, first)
-                    is_inter_molecular = (
-                        first.molecule_id is not None
-                        and second.molecule_id is not None
-                        and first.molecule_id != second.molecule_id
-                    )
-                    if not is_inter_molecular:
-                        if electron.bond_id is not None or nucleus.atom_id == electron.atom_id:
-                            continue
-                    elif electron.bond_id is not None and not inter_molecular_bond_forces_enabled:
-                        continue
-
-                displacement = subtract(first.position, second.position)
-                distance_squared = dot(displacement, displacement) + softening_squared
-                effective_charge_product = first.charge * second.charge
-                if interaction == "electron-nucleus":
-                    nucleus, electron = (first, second) if first.particle_type == "nucleus" else (second, first)
-                    force_on_first = _nuclear_electron_coulomb_force(
-                        nucleus,
-                        electron,
-                        self.strength,
-                        softening_squared,
-                        inter_molecular=is_inter_molecular,
-                    )
-                    if first.particle_type == "electron":
-                        force_on_first = scale(force_on_first, -1.0)
-                else:
-                    scale_value = self.strength * effective_charge_product / (distance_squared * sqrt(distance_squared))
-                    force_on_first = scale(displacement, scale_value)
-                force_on_second = scale(force_on_first, -1.0)
-                particle_forces[first.particle_id] = add(particle_forces[first.particle_id], force_on_first)
-                particle_forces[second.particle_id] = add(particle_forces[second.particle_id], force_on_second)
-
-                if interaction == "nucleus-nucleus":
-                    nucleus_repulsions[first.atom_id] = add(nucleus_repulsions[first.atom_id], force_on_first)
-                    nucleus_repulsions[second.atom_id] = add(nucleus_repulsions[second.atom_id], force_on_second)
-                elif interaction == "electron-nucleus":
-                    if first.particle_type == "nucleus":
-                        nucleus_id, force_on_nucleus = first.atom_id, force_on_first
-                        electron_id, force_on_electron = second.atom_id, force_on_second
-                    else:
-                        nucleus_id, force_on_nucleus = second.atom_id, force_on_second
-                        electron_id, force_on_electron = first.atom_id, force_on_first
-                    nucleus_electron_forces[nucleus_id] = add(
-                        nucleus_electron_forces[nucleus_id],
-                        force_on_nucleus,
-                    )
-                    # Preserve the prior integrator's routing of the electron-side
-                    # contribution to the nucleus that owns that electron.
-                    nucleus_electron_forces[electron_id] = add(
-                        nucleus_electron_forces[electron_id],
-                        force_on_electron,
-                    )
-
-        paired_electrons: dict[str, list[ParticleState]] = {}
-        for particle in particles:
-            if particle.particle_type == "electron" and particle.pair_id is not None:
-                paired_electrons.setdefault(particle.pair_id, []).append(particle)
-
-        for pair in paired_electrons.values():
-            if len(pair) != 2:
-                raise ValueError("Eine Bindung oder ein Elektronenpaar muss genau zwei Elektronen enthalten")
-            first, second = pair
-            displacement = subtract(first.position, second.position)
-            distance = length(displacement)
-            if distance == 0:
-                continue
-            deviation = distance - self.pair_target_length
-            force_on_first = scale(
-                displacement,
-                -self.pair_length_stiffness * deviation / distance,
+        electron_nucleus_pair_indices = np.flatnonzero(is_electron_nucleus & active_pairs)
+        radius_factors = np.ones(len(first_indices), dtype=np.float64)
+        if electron_nucleus_pair_indices.size:
+            target_indices = np.where(
+                first_is_electron[electron_nucleus_pair_indices],
+                second_indices[electron_nucleus_pair_indices],
+                first_indices[electron_nucleus_pair_indices],
             )
-            force_on_second = scale(force_on_first, -1.0)
-            particle_forces[first.particle_id] = add(particle_forces[first.particle_id], force_on_first)
-            particle_forces[second.particle_id] = add(particle_forces[second.particle_id], force_on_second)
+            source_electron_indices = electron_indices[electron_nucleus_pair_indices]
+            inter_pair_mask = is_inter_molecular[electron_nucleus_pair_indices]
 
+            if np.any(inter_pair_mask):
+                pair_indices = electron_nucleus_pair_indices[inter_pair_mask]
+                target_indices_for_pairs = target_indices[inter_pair_mask]
+                source_indices_for_pairs = source_electron_indices[inter_pair_mask]
+                bond_minimum_lengths_for_pairs = bond_minimum_lengths[source_indices_for_pairs]
+                target_electron_radii = electron_radii[target_indices_for_pairs]
+                if np.any(bond_minimum_lengths_for_pairs <= 0):
+                    raise ValueError("Die Mindestlänge der Bindung muss positiv sein")
+                has_target_radius = ~np.isnan(target_electron_radii)
+                if np.any(target_electron_radii[has_target_radius] <= 0):
+                    raise ValueError("Elektronenbahnradius muss positiv sein")
+
+                cutoff_radii = bond_minimum_lengths_for_pairs + np.where(
+                    has_target_radius,
+                    target_electron_radii,
+                    0.0,
+                )
+                pair_distances = np.sqrt(distances_squared[pair_indices])
+                taper_mask = has_target_radius & (pair_distances < cutoff_radii)
+                factors = np.ones(len(pair_indices), dtype=np.float64)
+                factors[taper_mask] = (
+                    pair_distances[taper_mask] / cutoff_radii[taper_mask]
+                ) ** 3
+                radius_factors[pair_indices] = factors
+
+            if np.any(~inter_pair_mask):
+                pair_indices = electron_nucleus_pair_indices[~inter_pair_mask]
+                target_indices_for_pairs = target_indices[~inter_pair_mask]
+                source_indices_for_pairs = source_electron_indices[~inter_pair_mask]
+                target_nuclear_radii_for_pairs = nuclear_radii[target_indices_for_pairs]
+                parent_nuclear_radii_for_pairs = parent_nuclear_radii[source_indices_for_pairs]
+                has_target_radius = ~np.isnan(target_nuclear_radii_for_pairs)
+                if np.any(target_nuclear_radii_for_pairs[has_target_radius] <= 0) or np.any(
+                    parent_nuclear_radii_for_pairs[
+                        has_target_radius & ~np.isnan(parent_nuclear_radii_for_pairs)
+                    ]
+                    <= 0
+                ):
+                    raise ValueError("Kernradien müssen positiv sein")
+
+                source_parent_positions = parent_nucleus_positions[source_indices_for_pairs]
+                radius_displacements = positions[target_indices_for_pairs] - source_parent_positions
+                radius_distances = np.sqrt(
+                    np.einsum("ij,ij->i", radius_displacements, radius_displacements)
+                )
+                combined_radii = target_nuclear_radii_for_pairs + np.where(
+                    np.isnan(parent_nuclear_radii_for_pairs),
+                    0.0,
+                    parent_nuclear_radii_for_pairs,
+                )
+                factors = np.ones(len(pair_indices), dtype=np.float64)
+                factors[has_target_radius] = np.minimum(
+                    1.0,
+                    radius_distances[has_target_radius] / (2 * combined_radii[has_target_radius]),
+                )
+                radius_factors[pair_indices] = factors
+
+        force_scales[is_electron_nucleus] *= radius_factors[is_electron_nucleus]
+        force_scales[~active_pairs] = 0.0
+        pair_forces = displacements * force_scales[:, np.newaxis]
+
+        particle_force_values = np.zeros((particle_count, 3), dtype=np.float64)
+        np.add.at(particle_force_values, first_indices, pair_forces)
+        np.add.at(particle_force_values, second_indices, -pair_forces)
+
+        nucleus_repulsion_values = np.zeros((particle_count, 3), dtype=np.float64)
+        nucleus_nucleus_pair_indices = np.flatnonzero(is_nucleus_nucleus)
+        np.add.at(
+            nucleus_repulsion_values,
+            first_indices[nucleus_nucleus_pair_indices],
+            pair_forces[nucleus_nucleus_pair_indices],
+        )
+        np.add.at(
+            nucleus_repulsion_values,
+            second_indices[nucleus_nucleus_pair_indices],
+            -pair_forces[nucleus_nucleus_pair_indices],
+        )
+
+        nucleus_electron_values = np.zeros((particle_count, 3), dtype=np.float64)
+        if electron_nucleus_pair_indices.size:
+            target_nucleus_indices = target_indices
+            target_forces = np.where(
+                first_is_electron[electron_nucleus_pair_indices, np.newaxis],
+                -pair_forces[electron_nucleus_pair_indices],
+                pair_forces[electron_nucleus_pair_indices],
+            )
+            np.add.at(nucleus_electron_values, target_nucleus_indices, target_forces)
+            nucleus_indices_by_atom = {
+                particles[index].atom_id: index for index in nucleus_indices
+            }
+            owner_nucleus_indices = np.fromiter(
+                (nucleus_indices_by_atom[atom_ids[index]] for index in source_electron_indices),
+                dtype=np.intp,
+                count=len(source_electron_indices),
+            )
+            np.add.at(nucleus_electron_values, owner_nucleus_indices, -target_forces)
+
+        paired_electrons: dict[str, list[int]] = {}
+        for index, pair_id in enumerate(pair_ids):
+            if is_electron[index] and pair_id is not None:
+                paired_electrons.setdefault(pair_id, []).append(index)
+        for pair_indices in paired_electrons.values():
+            if len(pair_indices) != 2:
+                raise ValueError("Eine Bindung oder ein Elektronenpaar muss genau zwei Elektronen enthalten")
+
+        if paired_electrons:
+            pair_first_indices = np.fromiter(
+                (indices[0] for indices in paired_electrons.values()),
+                dtype=np.intp,
+            )
+            pair_second_indices = np.fromiter(
+                (indices[1] for indices in paired_electrons.values()),
+                dtype=np.intp,
+            )
+            pair_displacements = positions[pair_first_indices] - positions[pair_second_indices]
+            pair_distances = np.linalg.norm(pair_displacements, axis=1)
+            nonzero_pairs = pair_distances > 0
+            pair_first_indices = pair_first_indices[nonzero_pairs]
+            pair_second_indices = pair_second_indices[nonzero_pairs]
+            pair_displacements = pair_displacements[nonzero_pairs]
+            pair_distances = pair_distances[nonzero_pairs]
+            deviations = pair_distances - self.pair_target_length
+            pair_force_values = (
+                -self.pair_length_stiffness * deviations / pair_distances
+            )[:, np.newaxis] * pair_displacements
+            np.add.at(particle_force_values, pair_first_indices, pair_force_values)
+            np.add.at(particle_force_values, pair_second_indices, -pair_force_values)
+
+        particle_forces = {
+            particle_id: tuple(float(component) for component in particle_force_values[index])
+            for index, particle_id in enumerate(particle_ids)
+        }
+        nucleus_repulsions = {
+            particles[index].atom_id: tuple(float(component) for component in nucleus_repulsion_values[index])
+            for index in nucleus_indices
+        }
+        nucleus_electron_forces = {
+            particles[index].atom_id: tuple(float(component) for component in nucleus_electron_values[index])
+            for index in nucleus_indices
+        }
         return ForceTotals(particle_forces, nucleus_repulsions, nucleus_electron_forces)
 
 

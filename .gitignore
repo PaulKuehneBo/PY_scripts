@@ -3,6 +3,7 @@
 
 # Allow the Git ignore file and these directories, including their contents.
 !.gitignore
+!pyproject.toml
 !src/
 !src/**
 !devl/
