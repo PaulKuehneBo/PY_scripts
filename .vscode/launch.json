@@ -37,6 +37,7 @@
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/devl/molecular/molecular_h2o.py",
+            "args": ["--lake-size", "10"],
             "console": "integratedTerminal"
         },
         {

@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass, field
 from functools import lru_cache
-from math import sqrt
+from math import isfinite, sqrt
 from random import gauss
 from typing import Any
 
@@ -304,12 +304,19 @@ def _nuclear_electron_coulomb_force(
 
 @dataclass(frozen=True)
 class CoulombForceModel:
-    """Coulomb-Wechselwirkungen in skalierten Visualisierungseinheiten."""
+    """Coulomb-Wechselwirkungen in skalierten Visualisierungseinheiten.
+
+    Der Faktor für intermolekulare Kernabstoßung skaliert nur Kern-Kern-Kräfte
+    zwischen verschiedenen Molekülen; intramolekulare Kräfte bleiben unverändert.
+    Ein optionaler Radius lässt diese zusätzliche Kraft weich auf null abklingen.
+    """
 
     strength: float = 0.02
     softening: float = 0.12
     pair_target_length: float = 0.22
     pair_length_stiffness: float = 1.0
+    inter_molecular_nucleus_repulsion_factor: float = 1.0
+    inter_molecular_nucleus_repulsion_radius: float | None = None
 
     def __post_init__(self) -> None:
         if self.strength < 0:
@@ -320,6 +327,19 @@ class CoulombForceModel:
             raise ValueError("Die Ziel-Paarlänge muss positiv sein")
         if self.pair_length_stiffness < 0:
             raise ValueError("Die Steifigkeit der Paarlänge darf nicht negativ sein")
+        if (
+            not isfinite(self.inter_molecular_nucleus_repulsion_factor)
+            or self.inter_molecular_nucleus_repulsion_factor < 0
+        ):
+            raise ValueError("Der Faktor der intermolekularen Kernabstoßung muss endlich und nicht negativ sein")
+        if (
+            self.inter_molecular_nucleus_repulsion_radius is not None
+            and (
+                not isfinite(self.inter_molecular_nucleus_repulsion_radius)
+                or self.inter_molecular_nucleus_repulsion_radius <= 0
+            )
+        ):
+            raise ValueError("Der Radius der intermolekularen Kernabstoßung muss positiv sein")
 
     def calculate(
         self,
@@ -419,6 +439,19 @@ class CoulombForceModel:
         force_scales = self.strength * charge_products / (
             softened_distances_squared * np.sqrt(softened_distances_squared)
         )
+        inter_molecular_nucleus_pairs = is_nucleus_nucleus & is_inter_molecular
+        force_scales[inter_molecular_nucleus_pairs] *= self.inter_molecular_nucleus_repulsion_factor
+        if self.inter_molecular_nucleus_repulsion_radius is not None:
+            pair_distances = np.sqrt(distances_squared[inter_molecular_nucleus_pairs])
+            normalized_distances = np.clip(
+                pair_distances / self.inter_molecular_nucleus_repulsion_radius,
+                0.0,
+                1.0,
+            )
+            attenuation = (1.0 - normalized_distances) ** 2 * (
+                1.0 + 2.0 * normalized_distances
+            )
+            force_scales[inter_molecular_nucleus_pairs] *= attenuation
 
         electron_nucleus_pair_indices = np.flatnonzero(is_electron_nucleus & active_pairs)
         radius_factors = np.ones(len(first_indices), dtype=np.float64)
@@ -664,11 +697,23 @@ TRACE_MARKER_INTERVAL_SECONDS = 1.0
 force_model = CoulombForceModel()
 
 
+def _default_force_model() -> CoulombForceModel:
+    return force_model
+
+
 class MoleculeCluster:
-    def __init__(self, molecules: Molecule | tuple[Molecule, ...]) -> None:
+    """Molekülcluster mit konfigurierbarem Kraftmodell."""
+
+    def __init__(
+        self,
+        molecules: Molecule | tuple[Molecule, ...],
+        *,
+        force_model: CoulombForceModel | None = None,
+    ) -> None:
         self.molecules = (molecules,) if isinstance(molecules, Molecule) else tuple(molecules)
         if not all(isinstance(molecule, Molecule) for molecule in self.molecules):
             raise ValueError("Mindestens ein Molekül muss simuliert werden")
+        self.force_model = _default_force_model() if force_model is None else force_model
 
         self._electrons = tuple(
             electron
@@ -848,7 +893,7 @@ def integrate_electrons(
     }
     atoms_by_id = {atom.atom_id: atom for atom in atoms}
     reactions_by_atom = {atom.atom_id: (0.0, 0.0, 0.0) for atom in atoms}
-    current_totals = force_model.calculate(
+    current_totals = molecules.force_model.calculate(
         molecules.particle_states,
         inter_molecular_bond_forces_enabled=inter_molecular_bond_forces_enabled,
     )
@@ -868,7 +913,10 @@ def integrate_electrons(
         applied_force = add(
             add(
                 reactions_by_atom[atom.atom_id],
-                scale(current_totals.nucleus_repulsions[atom.atom_id], NUCLEUS_REPULSION_FACTOR),
+                scale(
+                    current_totals.nucleus_repulsions[atom.atom_id],
+                    NUCLEUS_REPULSION_FACTOR,
+                ),
             ),
             current_totals.nucleus_electron_forces[atom.atom_id],
         )
@@ -886,7 +934,7 @@ def integrate_electrons(
         electron.position = add(electron.position, atom_displacement)
         electron.velocity = add(electron.velocity, atom_velocity_change)
 
-    updated_forces = force_model.calculate(
+    updated_forces = molecules.force_model.calculate(
         molecules.particle_states,
         inter_molecular_bond_forces_enabled=inter_molecular_bond_forces_enabled,
     ).particle_forces
@@ -899,7 +947,7 @@ def integrate_electrons(
         )
         electron.advance(atom, updated_forces[electron.electron_id], dt)
 
-    next_forces = force_model.calculate(
+    next_forces = molecules.force_model.calculate(
         molecules.particle_states,
         inter_molecular_bond_forces_enabled=inter_molecular_bond_forces_enabled,
     ).particle_forces
