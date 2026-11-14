@@ -2,7 +2,8 @@
 
 from dirabo.chem.aromatic_functional_groups import create_aromatic_ring
 from dirabo.chem.math import Vec3
-from dirabo.chem.particles import Molecule, MoleculeCluster
+from dirabo.chem.molecule_cluster import MoleculeCluster
+from dirabo.chem.particles import Molecule
 from dirabo.chem.render import show_molecules
 
 

@@ -8,6 +8,8 @@
 !src/**
 !devl/
 !devl/**
+!tests/
+!tests/**
 
 # Re-ignore CPython directories, even inside allowed folders.
 **/__pycache__/

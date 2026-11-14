@@ -1,7 +1,8 @@
 """Experiment: Wechselwirkung eines Protons mit einer Hydroxidgruppe."""
 
 from dirabo.chem import particles as simulation_parameters
-from dirabo.chem.particles import Molecule, MoleculeCluster
+from dirabo.chem.molecule_cluster import MoleculeCluster
+from dirabo.chem.particles import Molecule
 from dirabo.chem.psystems import hydrogen
 from dirabo.chem.render import show_molecules
 from dirabo.chem.water import create_OH_group

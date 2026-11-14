@@ -11,7 +11,8 @@ from dirabo.chem.organic_functional_groups import (
     FunctionalGroupType,
     OrganicFunctionalGroup,
 )
-from dirabo.chem.particles import Molecule, MoleculeCluster
+from dirabo.chem.molecule_cluster import MoleculeCluster
+from dirabo.chem.particles import Molecule
 from dirabo.chem.render import show_molecules
 
 

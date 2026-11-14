@@ -1,7 +1,8 @@
 """Startskript für ein Ethanolmodell (C2H6O) in der 3D-Simulation."""
 
 from dirabo.chem.organic_functional_groups import FunctionalGroupType, create_carbon_chain
-from dirabo.chem.particles import Molecule, MoleculeCluster
+from dirabo.chem.molecule_cluster import MoleculeCluster
+from dirabo.chem.particles import Molecule
 from dirabo.chem.render import show_molecules
 
 

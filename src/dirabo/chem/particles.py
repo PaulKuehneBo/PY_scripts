@@ -4,7 +4,6 @@ from collections import deque
 from dataclasses import dataclass, field
 from functools import lru_cache
 from math import isfinite, sqrt
-from random import gauss
 from typing import Any
 
 import numpy as np
@@ -640,6 +639,8 @@ class Molecule:
     free_electrons: tuple[Electron, ...] = ()
 
     def __post_init__(self) -> None:
+        if not self.atoms:
+            raise ValueError("Ein Molekül benötigt mindestens ein Atom")
         atom_ids = [atom.atom_id for atom in self.atoms]
         if len(atom_ids) != len(set(atom_ids)):
             raise ValueError("Jedes Atom benötigt eine eindeutige ID")
@@ -680,6 +681,19 @@ class Molecule:
         if len(bonded_electrons) != sum(electron.bond_id is not None for electron in all_electrons):
             raise ValueError("Bindungs-IDs und Elektronen der Bindungen stimmen nicht überein")
 
+    @property
+    def center(self) -> Vec3:
+        return (
+            sum(atom.position[0] for atom in self.atoms) / len(self.atoms),
+            sum(atom.position[1] for atom in self.atoms) / len(self.atoms),
+            sum(atom.position[2] for atom in self.atoms) / len(self.atoms),
+        )
+
+    @property
+    def radius(self) -> float:
+        molecule_center = self.center
+        return max(length(subtract(atom.position, molecule_center)) for atom in self.atoms)
+
 
 def _interaction_type(first: ParticleState, second: ParticleState) -> str:
     first_is_electron = first.particle_type == "electron"
@@ -717,272 +731,3 @@ LONE_PAIR_BROWNIAN_VELOCITY_FACTOR = 2.5
 TRACE_POINT_LIMIT = 1000
 # Markiere die Kernposition einmal pro simulierter Sekunde mit einem Kreuz.
 TRACE_MARKER_INTERVAL_SECONDS = 1.0
-
-force_model = CoulombForceModel()
-
-
-def _default_force_model() -> CoulombForceModel:
-    return force_model
-
-
-class MoleculeCluster:
-    """Molekülcluster mit konfigurierbarem Kraftmodell."""
-
-    def __init__(
-        self,
-        molecules: Molecule | tuple[Molecule, ...],
-        *,
-        force_model: CoulombForceModel | None = None,
-    ) -> None:
-        self.molecules = (molecules,) if isinstance(molecules, Molecule) else tuple(molecules)
-        if not all(isinstance(molecule, Molecule) for molecule in self.molecules):
-            raise ValueError("Mindestens ein Molekül muss simuliert werden")
-        self.force_model = _default_force_model() if force_model is None else force_model
-
-        self._electrons = tuple(
-            electron
-            for item in self.molecules
-            for electron in (
-                *(electron for bond in item.bonds for electron in bond.electrons),
-                *(electron for pair in item.lone_pairs for electron in pair.electrons),
-                *item.free_electrons,
-            )
-        )
-        self._atoms = tuple(atom for molecule in self.molecules for atom in molecule.atoms)
-        self._atoms_by_id = {atom.atom_id: atom for atom in self._atoms}
-
-        self._bonds = tuple(bond for molecule in self.molecules for bond in molecule.bonds)
-
-        self._lone_pairs = tuple(pair for molecule in self.molecules for pair in molecule.lone_pairs)
-
-        self._electron_parent_atoms = tuple(self._atoms_by_id[electron.atom_id] for electron in self._electrons)
-        self._particle_states = self._calculate_particle_states()
-        self._nucleus_particle_states = self._particle_states[: len(self._atoms)]
-        self._electron_particle_states = self._particle_states[len(self._atoms) :]
-
-    def _calculate_particle_states(self) -> tuple[ParticleState, ...]:
-        molecule_ids_by_atom = {atom.atom_id: id(item) for item in self.molecules for atom in item.atoms}
-        pair_ids_by_electron = {
-            electron.electron_id: bond.bond_id
-            for item in self.molecules
-            for bond in item.bonds
-            for electron in bond.electrons
-        }
-        pair_ids_by_electron.update(
-            {
-                electron.electron_id: pair.pair_id
-                for item in self.molecules
-                for pair in item.lone_pairs
-                for electron in pair.electrons
-            }
-        )
-        particles = [
-            ParticleState(
-                f"{atom.atom_id}:nucleus",
-                atom.atom_id,
-                atom.position,
-                atom.nuclear_charge,
-                "nucleus",
-                atom.core_mass,
-                None,
-                None,
-                id(item),
-                atom.display_radius,
-                None,
-                None,
-                atom.electron_radius,
-                nucleus_repulsion_radius=atom.nucleus_repulsion_radius,
-            )
-            for item in self.molecules
-            for atom in item.atoms
-        ]
-        bond_minimum_lengths_by_electron_id: dict[str, float] = {}
-        for item in self.molecules:
-            for bond in item.bonds:
-                for electron in bond.electrons:
-                    bond_minimum_lengths_by_electron_id[electron.electron_id] = bond.minimum_length
-
-        particles.extend(
-            ParticleState(
-                electron.electron_id,
-                electron.atom_id,
-                electron.position,
-                electron.charge,
-                "electron",
-                electron.mass,
-                electron.bond_id,
-                pair_ids_by_electron.get(electron.electron_id),
-                molecule_ids_by_atom[electron.atom_id],
-                None,
-                self._atoms_by_id[electron.atom_id].position,
-                self._atoms_by_id[electron.atom_id].display_radius,
-                None,
-                bond_minimum_lengths_by_electron_id.get(
-                    electron.electron_id,
-                    BOND_MINIMUM_LENGTH,
-                ),
-            )
-            for electron in self.electrons
-        )
-        particle_ids = [particle.particle_id for particle in particles]
-        if len(particle_ids) != len(set(particle_ids)):
-            raise ValueError("Partikel-IDs müssen über alle Moleküle hinweg eindeutig sein")
-        return tuple(particles)
-
-    @property
-    def electrons(self) -> tuple[Electron, ...]:
-        return self._electrons
-
-    @property
-    def atoms(self) -> tuple[Atom, ...]:
-        return self._atoms
-
-    @property
-    def bonds(self) -> tuple[Bond, ...]:
-        return self._bonds
-
-    @property
-    def lone_pairs(self) -> tuple[ElectronPair, ...]:
-        return self._lone_pairs
-
-    @property
-    def particle_states(self) -> tuple[ParticleState, ...]:
-        for state, atom in zip(self._nucleus_particle_states, self._atoms):
-            state.position = atom.position
-            state.nucleus_repulsion_radius = atom.nucleus_repulsion_radius
-
-        for state, electron, parent_atom in zip(
-            self._electron_particle_states,
-            self._electrons,
-            self._electron_parent_atoms,
-        ):
-            state.position = electron.position
-            state.parent_nucleus_position = parent_atom.position
-        return self._particle_states
-
-
-def _brownian_velocity_kick(dt: float, velocity_factor: float = 1.0) -> Vec3:
-    if BROWNIAN_VELOCITY_AMPLITUDE < 0:
-        raise ValueError("Die Brownsche Bewegungsamplitude darf nicht negativ sein")
-    if DAMPING_REFERENCE_DT <= 0:
-        raise ValueError("Das Dämpfungs-Referenzintervall muss positiv sein")
-    if dt < 0:
-        raise ValueError("Der Simulationszeitschritt darf nicht negativ sein")
-    if velocity_factor < 0:
-        raise ValueError("Der Brownsche Geschwindigkeitsfaktor darf nicht negativ sein")
-
-    scale = BROWNIAN_VELOCITY_AMPLITUDE * velocity_factor * sqrt(dt / DAMPING_REFERENCE_DT)
-    return gauss(0.0, scale), gauss(0.0, scale), gauss(0.0, scale)
-
-
-def recenter_system(
-    molecules: MoleculeCluster,
-    remove_com_velocity: bool,
-) -> None:
-    atoms = molecules.atoms
-    electrons = molecules.electrons
-    total_mass = sum(atom.core_mass for atom in atoms) + sum(electron.mass for electron in electrons)
-    if total_mass <= 0:
-        raise ValueError("Die Gesamtmasse des Molekülsystems muss positiv sein")
-
-    center_of_mass = (0.0, 0.0, 0.0)
-    center_velocity = (0.0, 0.0, 0.0)
-    for atom in atoms:
-        mass_fraction = atom.core_mass / total_mass
-        center_of_mass = add(center_of_mass, scale(atom.position, mass_fraction))
-        center_velocity = add(center_velocity, scale(atom.velocity, mass_fraction))
-    for electron in electrons:
-        mass_fraction = electron.mass / total_mass
-        center_of_mass = add(center_of_mass, scale(electron.position, mass_fraction))
-        center_velocity = add(center_velocity, scale(electron.velocity, mass_fraction))
-
-    for atom in atoms:
-        atom.position = subtract(atom.position, center_of_mass)
-        if remove_com_velocity:
-            atom.velocity = subtract(atom.velocity, center_velocity)
-    for electron in electrons:
-        electron.position = subtract(electron.position, center_of_mass)
-        if remove_com_velocity:
-            electron.velocity = subtract(electron.velocity, center_velocity)
-
-
-def integrate_electrons(
-    molecules: MoleculeCluster,
-    dt: float,
-    *,
-    inter_molecular_bond_forces_enabled: bool = True,
-) -> None:
-    atoms = molecules.atoms
-    electrons = molecules.electrons
-    lone_pair_electron_ids = {
-        electron.electron_id for item in molecules.molecules for pair in item.lone_pairs for electron in pair.electrons
-    }
-    atoms_by_id = {atom.atom_id: atom for atom in atoms}
-    reactions_by_atom = {atom.atom_id: (0.0, 0.0, 0.0) for atom in atoms}
-    current_totals = molecules.force_model.calculate(
-        molecules.particle_states,
-        inter_molecular_bond_forces_enabled=inter_molecular_bond_forces_enabled,
-    )
-    current_forces = current_totals.particle_forces
-
-    for electron in electrons:
-        atom = atoms_by_id[electron.atom_id]
-        if electron.bond_id is not None:
-            reactions_by_atom[atom.atom_id] = add(
-                reactions_by_atom[atom.atom_id],
-                current_forces[electron.electron_id],
-            )
-
-    old_atom_positions = {atom.atom_id: atom.position for atom in atoms}
-    old_atom_velocities = {atom.atom_id: atom.velocity for atom in atoms}
-    for atom in atoms:
-        applied_force = add(
-            add(
-                reactions_by_atom[atom.atom_id],
-                scale(
-                    current_totals.nucleus_repulsions[atom.atom_id],
-                    NUCLEUS_REPULSION_FACTOR,
-                ),
-            ),
-            current_totals.nucleus_electron_forces[atom.atom_id],
-        )
-        atom.velocity = scale(
-            add(atom.velocity, scale(applied_force, dt / atom.core_mass)),
-            DAMPING_FACTOR ** (dt / DAMPING_REFERENCE_DT),
-        )
-        atom.velocity = add(atom.velocity, _brownian_velocity_kick(dt))
-        atom.position = add(atom.position, scale(atom.velocity, dt))
-
-    for electron in electrons:
-        atom = atoms_by_id[electron.atom_id]
-        atom_displacement = subtract(atom.position, old_atom_positions[atom.atom_id])
-        atom_velocity_change = subtract(atom.velocity, old_atom_velocities[atom.atom_id])
-        electron.position = add(electron.position, atom_displacement)
-        electron.velocity = add(electron.velocity, atom_velocity_change)
-
-    updated_forces = molecules.force_model.calculate(
-        molecules.particle_states,
-        inter_molecular_bond_forces_enabled=inter_molecular_bond_forces_enabled,
-    ).particle_forces
-    for electron in electrons:
-        atom = atoms_by_id[electron.atom_id]
-        velocity_factor = LONE_PAIR_BROWNIAN_VELOCITY_FACTOR if electron.electron_id in lone_pair_electron_ids else 1.0
-        electron.velocity = add(
-            electron.velocity,
-            _brownian_velocity_kick(dt, velocity_factor),
-        )
-        electron.advance(atom, updated_forces[electron.electron_id], dt)
-
-    next_forces = molecules.force_model.calculate(
-        molecules.particle_states,
-        inter_molecular_bond_forces_enabled=inter_molecular_bond_forces_enabled,
-    ).particle_forces
-    for electron in electrons:
-        atom = atoms_by_id[electron.atom_id]
-        electron.complete_step(atom, next_forces[electron.electron_id], dt)
-        electron.velocity = scale(
-            electron.velocity,
-            DAMPING_FACTOR ** (dt / DAMPING_REFERENCE_DT),
-        )
-
-    recenter_system(molecules, remove_com_velocity=True)

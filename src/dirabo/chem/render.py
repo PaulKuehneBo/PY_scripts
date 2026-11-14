@@ -11,11 +11,9 @@ from dirabo.chem.particles import (
     TRACE_MARKER_INTERVAL_SECONDS,
     TRACE_POINT_LIMIT,
     Molecule,
-    MoleculeCluster,
     NuclearTrace,
-    integrate_electrons,
-    recenter_system,
 )
+from dirabo.chem.molecule_cluster import MoleculeCluster
 from dirabo.chem.psystems import get_color
 
 
@@ -68,7 +66,7 @@ def show_molecule(molecule: Molecule) -> None:
     show_molecules(MoleculeCluster(molecule))
 
 
-def show_molecules(molecules: MoleculeCluster) -> None:
+def show_molecules(molecules: MoleculeCluster, *, start_paused: bool = False) -> None:
     atoms = molecules.atoms
     electrons = molecules.electrons
     bonds = molecules.bonds
@@ -94,12 +92,12 @@ def show_molecules(molecules: MoleculeCluster) -> None:
     scene.width = 1000
     scene.height = 700
     scene.background = color.black
-    scene.range = max(1.6, 1.6 * len(molecules.molecules))
+    scene.range = max(1.6, 1.6 * molecules.size)
 
     atoms_by_id = {atom.atom_id: atom for atom in atoms}
     for electron in electrons:
         electron.initialize(atoms_by_id[electron.atom_id])
-    recenter_system(molecules, remove_com_velocity=False)
+    molecules.recenter(remove_com_velocity=False)
 
     traces = {
         atom.atom_id: NuclearTrace(
@@ -113,6 +111,17 @@ def show_molecules(molecules: MoleculeCluster) -> None:
         )
         for atom in atoms
     }
+
+    molecule_bounds = tuple(
+        sphere(
+            pos=vector(*molecule.center),
+            radius=max(molecule.radius, 1e-6),
+            color=color.cyan,
+            opacity=0.15,
+            visible=False,
+        )
+        for molecule in molecules.molecules
+    )
 
     for atom in atoms:
         atom.visual = sphere(
@@ -145,15 +154,19 @@ def show_molecules(molecules: MoleculeCluster) -> None:
             color=vector(0.82, 0.75, 0.62),
         )
 
-    controls = bind_keyboard_controls(molecules, traces)
+    controls = bind_keyboard_controls(
+        molecules,
+        traces,
+        molecule_bounds,
+        start_paused=start_paused,
+    )
     trace_sample_index = 0
     while True:
         rate(60)
         if controls.paused:
             continue
         for _ in range(SIMULATION_STEPS_PER_FRAME):
-            integrate_electrons(
-                molecules,
+            molecules.integrate(
                 SIMULATION_DT,
                 inter_molecular_bond_forces_enabled=controls.inter_molecular_bond_forces_enabled,
             )
@@ -171,6 +184,10 @@ def show_molecules(molecules: MoleculeCluster) -> None:
 
         for electron in electrons:
             electron.visual.pos = vector(*electron.position)
+
+        for molecule, bound in zip(molecules.molecules, molecule_bounds):
+            bound.pos = vector(*molecule.center)
+            bound.radius = max(molecule.radius, 1e-6)
 
         for bond in bonds:
             first, second = bond.electrons

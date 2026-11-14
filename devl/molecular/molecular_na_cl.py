@@ -1,6 +1,7 @@
 """Startskript für ein NaCl-Ionenmodell mit sichtbaren Chlorid-Elektronen."""
 
-from dirabo.chem.particles import Molecule, MoleculeCluster
+from dirabo.chem.molecule_cluster import MoleculeCluster
+from dirabo.chem.particles import Molecule
 from dirabo.chem.psystems import chlorine, sodium
 from dirabo.chem.render import show_molecules
 

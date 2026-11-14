@@ -6,9 +6,9 @@ from vpython import scene
 
 from dirabo.chem.particles import (
     ELECTRON_DISPLAY_RADIUS,
-    MoleculeCluster,
     NuclearTrace,
 )
+from dirabo.chem.molecule_cluster import MoleculeCluster
 
 
 class KeyboardControls:
@@ -16,12 +16,16 @@ class KeyboardControls:
         self,
         molecules: MoleculeCluster,
         traces: dict[str, NuclearTrace],
+        molecule_bounds: tuple[Any, ...] = (),
+        start_paused: bool = False,
     ) -> None:
         self.molecules = molecules
         self.traces = traces
+        self.molecule_bounds = molecule_bounds
         self.small_nuclei = False
         self.traces_visible = True
-        self.paused = False
+        self.molecule_bounds_visible = False
+        self.paused = start_paused
         self.inter_molecular_bond_forces_enabled = True
 
     def handle_keydown(self, event: Any) -> None:
@@ -33,6 +37,12 @@ class KeyboardControls:
                     atom.visual.radius = ELECTRON_DISPLAY_RADIUS if self.small_nuclei else atom.normal_display_radius
             state = "klein" if self.small_nuclei else "normal"
             print(f"Atomkerne: {state}")
+        elif key == "m":
+            self.molecule_bounds_visible = not self.molecule_bounds_visible
+            for bound in self.molecule_bounds:
+                bound.visible = self.molecule_bounds_visible
+            state = "an" if self.molecule_bounds_visible else "aus"
+            print(f"Molekülhüllen: {state}")
         elif key == "t":
             self.traces_visible = not self.traces_visible
             for trace in self.traces.values():
@@ -55,11 +65,13 @@ class KeyboardControls:
 def bind_keyboard_controls(
     molecules: MoleculeCluster,
     traces: dict[str, NuclearTrace],
+    molecule_bounds: tuple[Any, ...] = (),
+    start_paused: bool = False,
 ) -> KeyboardControls:
-    controls = KeyboardControls(molecules, traces)
+    controls = KeyboardControls(molecules, traces, molecule_bounds, start_paused)
     scene.bind("keydown", controls.handle_keydown)
     print(
-        "Tastatur: n=Atomgröße, t=Atomkern-Traces, "
+        "Tastatur: n=Atomgröße, m=Molekülhüllen, t=Atomkern-Traces, "
         "b=gebundene Elektron-Nucleus-Kräfte zwischen Molekülen, SPACE=Pause/Fortsetzen"
     )
     return controls

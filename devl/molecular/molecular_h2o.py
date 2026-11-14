@@ -1,56 +1,44 @@
 """CLI zum Simulieren eines Clusters aus Wassermolekülen."""
 
 import argparse
-from math import ceil, isfinite, sqrt
+from math import isfinite
 from typing import Sequence
 
-from dirabo.chem.particles import CoulombForceModel, MoleculeCluster
+from dirabo.chem.molecule_cluster import MoleculeCluster
+from dirabo.chem.particles import CoulombForceModel
 from dirabo.chem.render import show_molecules
 from dirabo.chem.water import create_water_molecule
 
-WATER_MOLECULE_SPACING = 3.2
 DEFAULT_NUCLEUS_REPULSION_FACTOR = 0.2
 DEFAULT_NUCLEUS_REPULSION_RADIUS: float | None = None
 
 
 def create_water_cluster(
     lake_size: int = 2,
-    spacing: float = WATER_MOLECULE_SPACING,
+    *,
+    placement_clearance: float = 0.0,
     nucleus_repulsion_factor: float = DEFAULT_NUCLEUS_REPULSION_FACTOR,
     nucleus_repulsion_radius: float | None = DEFAULT_NUCLEUS_REPULSION_RADIUS,
 ) -> MoleculeCluster:
-    """Erzeugt einen zentrierten, rasterförmigen Cluster aus Wassermolekülen."""
+    """Erzeugt einen Cluster, indem jedes Wassermolekül einzeln hinzugefügt wird."""
     if lake_size < 1:
         raise ValueError("Die Seegröße muss mindestens ein Wassermolekül betragen")
-    if spacing <= 0:
-        raise ValueError("Der Abstand zwischen Wassermolekülen muss positiv sein")
+    if not isfinite(placement_clearance) or placement_clearance < 0:
+        raise ValueError("Der Platzierungsabstand muss endlich und nicht negativ sein")
 
-    column_count = ceil(sqrt(lake_size))
-    grid_positions = [
-        (
-            (index % column_count) * spacing,
-            (index // column_count) * spacing,
-            0.0,
-        )
-        for index in range(lake_size)
-    ]
-    center_x = sum(position[0] for position in grid_positions) / lake_size
-    center_y = sum(position[1] for position in grid_positions) / lake_size
-
-    molecules = tuple(
-        create_water_molecule(
-            f"H2O-{index + 1}",
-            (position[0] - center_x, position[1] - center_y, position[2]),
-        )
-        for index, position in enumerate(grid_positions)
-    )
-    return MoleculeCluster(
-        molecules,
+    cluster = MoleculeCluster(
+        create_water_molecule("H2O-1"),
         force_model=CoulombForceModel(
             inter_molecular_nucleus_repulsion_factor=nucleus_repulsion_factor,
             inter_molecular_nucleus_repulsion_radius=nucleus_repulsion_radius,
         ),
     )
+    for index in range(1, lake_size):
+        cluster.add(
+            create_water_molecule(f"H2O-{index + 1}"),
+            clearance=placement_clearance,
+        )
+    return cluster
 
 
 def _positive_int(value: str) -> int:
@@ -95,6 +83,11 @@ def _parse_args(args: Sequence[str] | None = None) -> argparse.Namespace:
         help="Anzahl der H2O-Moleküle (Standard: 2)",
     )
     parser.add_argument(
+        "--stop-at-start",
+        action="store_true",
+        help="Simulation zunächst pausiert starten",
+    )
+    parser.add_argument(
         "--nucleus-repulsion-factor",
         type=_non_negative_float,
         default=DEFAULT_NUCLEUS_REPULSION_FACTOR,
@@ -124,7 +117,8 @@ def main(args: Sequence[str] | None = None) -> None:
             options.lake_size,
             nucleus_repulsion_factor=options.nucleus_repulsion_factor,
             nucleus_repulsion_radius=options.nucleus_repulsion_radius,
-        )
+        ),
+        start_paused=options.stop_at_start,
     )
 
 
