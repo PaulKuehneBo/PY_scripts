@@ -17,6 +17,7 @@ class ElementProperties:
     color: Vec3 = (1.0, 1.0, 1.0)
     lone_pair_directions: tuple[tuple[Vec3, Vec3], ...] = ()
     default_lone_pair_count: int = 0
+    nucleus_repulsion_radius: float = 5.0
 
 
 @dataclass(frozen=True)
@@ -119,6 +120,7 @@ def create_atom(
         core_mass=properties.core_mass,
         electron_radius=properties.electron_radius,
         display_radius=properties.display_radius,
+        nucleus_repulsion_radius=properties.nucleus_repulsion_radius,
     )
 
 

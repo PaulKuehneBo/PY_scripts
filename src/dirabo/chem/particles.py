@@ -42,9 +42,14 @@ class Atom:
     core_mass: float
     electron_radius: float
     display_radius: float
+    nucleus_repulsion_radius: float = 5.0
     velocity: Vec3 = field(default=(0.0, 0.0, 0.0), init=False)
     visual: Any = field(default=None, init=False, repr=False, compare=False)
     normal_display_radius: float = field(default=0.0, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        if not isfinite(self.nucleus_repulsion_radius) or self.nucleus_repulsion_radius <= 0:
+            raise ValueError("Der Kernabstoßungsradius muss endlich und positiv sein")
 
 
 @dataclass
@@ -224,6 +229,7 @@ class ParticleState:
     parent_nuclear_radius: float | None = None
     electron_radius: float | None = None
     bond_minimum_length: float = BOND_MINIMUM_LENGTH
+    nucleus_repulsion_radius: float = 5.0
 
 
 @dataclass(frozen=True)
@@ -308,7 +314,8 @@ class CoulombForceModel:
 
     Der Faktor für intermolekulare Kernabstoßung skaliert nur Kern-Kern-Kräfte
     zwischen verschiedenen Molekülen; intramolekulare Kräfte bleiben unverändert.
-    Ein optionaler Radius lässt diese zusätzliche Kraft weich auf null abklingen.
+    Der Exzess über den normalen Coulomb-Faktor klingt gaußförmig ab; der
+    Radius bezeichnet den Abstand, bei dem noch 10 % dieses Exzesses anliegen.
     """
 
     strength: float = 0.02
@@ -391,6 +398,10 @@ class CoulombForceModel:
             ],
             dtype=np.float64,
         )
+        nucleus_repulsion_radii = np.asarray(
+            [particle.nucleus_repulsion_radius for particle in particles],
+            dtype=np.float64,
+        )
         parent_nucleus_positions = np.asarray(
             [
                 particle.position
@@ -440,18 +451,31 @@ class CoulombForceModel:
             softened_distances_squared * np.sqrt(softened_distances_squared)
         )
         inter_molecular_nucleus_pairs = is_nucleus_nucleus & is_inter_molecular
-        force_scales[inter_molecular_nucleus_pairs] *= self.inter_molecular_nucleus_repulsion_factor
-        if self.inter_molecular_nucleus_repulsion_radius is not None:
-            pair_distances = np.sqrt(distances_squared[inter_molecular_nucleus_pairs])
-            normalized_distances = np.clip(
-                pair_distances / self.inter_molecular_nucleus_repulsion_radius,
-                0.0,
-                1.0,
-            )
-            attenuation = (1.0 - normalized_distances) ** 2 * (
-                1.0 + 2.0 * normalized_distances
-            )
-            force_scales[inter_molecular_nucleus_pairs] *= attenuation
+        inter_molecular_nucleus_pair_indices = np.flatnonzero(inter_molecular_nucleus_pairs)
+        if inter_molecular_nucleus_pair_indices.size:
+            first_nucleus_indices = first_indices[inter_molecular_nucleus_pair_indices]
+            second_nucleus_indices = second_indices[inter_molecular_nucleus_pair_indices]
+            if self.inter_molecular_nucleus_repulsion_radius is None:
+                pair_radii = (
+                    nucleus_repulsion_radii[first_nucleus_indices]
+                    + nucleus_repulsion_radii[second_nucleus_indices]
+                ) / 2.0
+            else:
+                pair_radii = np.full(
+                    inter_molecular_nucleus_pair_indices.size,
+                    self.inter_molecular_nucleus_repulsion_radius,
+                    dtype=np.float64,
+                )
+            if np.any(~np.isfinite(pair_radii)) or np.any(pair_radii <= 0):
+                raise ValueError("Paarweise Kernabstoßungsradien müssen endlich und positiv sein")
+
+            pair_distances = np.sqrt(distances_squared[inter_molecular_nucleus_pair_indices])
+            normalized_distances = pair_distances / pair_radii
+            gaussian = np.exp(-np.log(10.0) * normalized_distances**2)
+            multipliers = 1.0 + (
+                self.inter_molecular_nucleus_repulsion_factor - 1.0
+            ) * gaussian
+            force_scales[inter_molecular_nucleus_pair_indices] *= multipliers
 
         electron_nucleus_pair_indices = np.flatnonzero(is_electron_nucleus & active_pairs)
         radius_factors = np.ones(len(first_indices), dtype=np.float64)
@@ -767,6 +791,7 @@ class MoleculeCluster:
                 None,
                 None,
                 atom.electron_radius,
+                nucleus_repulsion_radius=atom.nucleus_repulsion_radius,
             )
             for item in self.molecules
             for atom in item.atoms
@@ -824,6 +849,7 @@ class MoleculeCluster:
     def particle_states(self) -> tuple[ParticleState, ...]:
         for state, atom in zip(self._nucleus_particle_states, self._atoms):
             state.position = atom.position
+            state.nucleus_repulsion_radius = atom.nucleus_repulsion_radius
 
         for state, electron, parent_atom in zip(
             self._electron_particle_states,

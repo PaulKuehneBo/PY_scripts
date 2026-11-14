@@ -10,7 +10,7 @@ from dirabo.chem.water import create_water_molecule
 
 WATER_MOLECULE_SPACING = 3.2
 DEFAULT_NUCLEUS_REPULSION_FACTOR = 0.2
-DEFAULT_NUCLEUS_REPULSION_RADIUS = 5.0
+DEFAULT_NUCLEUS_REPULSION_RADIUS: float | None = None
 
 
 def create_water_cluster(
@@ -100,8 +100,8 @@ def _parse_args(args: Sequence[str] | None = None) -> argparse.Namespace:
         default=DEFAULT_NUCLEUS_REPULSION_FACTOR,
         metavar="FAKTOR",
         help=(
-            "Skalierung der Kern-Kern-Abstoßung zwischen verschiedenen "
-            f"Molekülen, 0=aus (Standard: {DEFAULT_NUCLEUS_REPULSION_FACTOR})"
+            "Kraftmultiplikator bei Kernabstand 0; nähert sich mit Abstand "
+            f"dem Basiswert 1 (Standard: {DEFAULT_NUCLEUS_REPULSION_FACTOR})"
         ),
     )
     parser.add_argument(
@@ -110,8 +110,8 @@ def _parse_args(args: Sequence[str] | None = None) -> argparse.Namespace:
         default=DEFAULT_NUCLEUS_REPULSION_RADIUS,
         metavar="RADIUS",
         help=(
-            "Maximaler Abstand zwischen Atomkernen für die zusätzliche "
-            f"Abstoßung (Standard: {DEFAULT_NUCLEUS_REPULSION_RADIUS})"
+            "Optionaler Radius-Override; bei diesem Abstand ist der Exzess "
+            "über Faktor 1 auf 10 % abgeklungen (Standard: Atomradien)"
         ),
     )
     return parser.parse_args(args)

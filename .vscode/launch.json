@@ -37,7 +37,9 @@
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/devl/molecular/molecular_h2o.py",
-            "args": ["--lake-size", "10"],
+            "args": ["--lake-size", "10", 
+                     "--nucleus-repulsion-factor", "10",
+                     "--nucleus-repulsion-radius", "3"],
             "console": "integratedTerminal"
         },
         {
