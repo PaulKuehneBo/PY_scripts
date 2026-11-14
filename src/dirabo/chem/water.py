@@ -1,7 +1,7 @@
 from math import cos, radians, sin
 
-from dirabo.chem.math import Vec3, add, direction_towards
-from dirabo.chem.particles import Bond, Electron, Molecule
+from dirabo.chem.math import Vec3, add
+from dirabo.chem.particles import Molecule, create_bond
 from dirabo.chem.psystems import hydrogen, oxygen
 
 # 1 Welt-Einheit entspricht 1 Å. Die Kugelradien sind Darstellungswerte.
@@ -42,43 +42,20 @@ def create_water_molecule(
     hydrogen1_particles = hydrogen(hydrogen1_id, hydrogen1_position)
     hydrogen2_particles = hydrogen(hydrogen2_id, hydrogen2_position)
 
-    bond1 = Bond(
+    bond1 = create_bond(
         bond1_id,
-        (
-            Electron(
-                f"{instance_id}:eO1",
-                oxygen_id,
-                direction_towards(oxygen_position, hydrogen1_position, -0.16),
-                bond_id=bond1_id,
-                orbit_direction=1.0,
-            ),
-            Electron(
-                f"{instance_id}:eH1",
-                hydrogen1_id,
-                direction_towards(hydrogen1_position, oxygen_position, 0.16),
-                bond_id=bond1_id,
-                orbit_direction=-1.0,
-            ),
-        ),
+        oxygen_particles.atom,
+        hydrogen1_particles.atom,
+        electron_ids=(f"{instance_id}:eO1", f"{instance_id}:eH1"),
+        electron_z_offsets=(-0.16, 0.16),
     )
-    bond2 = Bond(
+    bond2 = create_bond(
         bond2_id,
-        (
-            Electron(
-                f"{instance_id}:eO2",
-                oxygen_id,
-                direction_towards(oxygen_position, hydrogen2_position, -0.16),
-                bond_id=bond2_id,
-                orbit_direction=-1.0,
-            ),
-            Electron(
-                f"{instance_id}:eH2",
-                hydrogen2_id,
-                direction_towards(hydrogen2_position, oxygen_position, 0.16),
-                bond_id=bond2_id,
-                orbit_direction=1.0,
-            ),
-        ),
+        oxygen_particles.atom,
+        hydrogen2_particles.atom,
+        electron_ids=(f"{instance_id}:eO2", f"{instance_id}:eH2"),
+        electron_z_offsets=(-0.16, 0.16),
+        orbit_directions=(-1.0, 1.0),
     )
     return Molecule(
         f"H2O {instance_id}",
@@ -114,24 +91,12 @@ def create_OH_group(
         hydrogen_position,
         nuclear_charge_override=1.0,
     )
-    bond = Bond(
+    bond = create_bond(
         bond_id,
-        (
-            Electron(
-                f"{instance_id}:eO1",
-                oxygen_id,
-                direction_towards(oxygen_position, hydrogen_position, -0.16),
-                bond_id=bond_id,
-                orbit_direction=1.0,
-            ),
-            Electron(
-                f"{instance_id}:eH1",
-                hydrogen_id,
-                direction_towards(hydrogen_position, oxygen_position, 0.16),
-                bond_id=bond_id,
-                orbit_direction=-1.0,
-            ),
-        ),
+        oxygen_particles.atom,
+        hydrogen_particles.atom,
+        electron_ids=(f"{instance_id}:eO1", f"{instance_id}:eH1"),
+        electron_z_offsets=(-0.16, 0.16),
     )
     return Molecule(
         f"OH- {instance_id}",

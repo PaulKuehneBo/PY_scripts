@@ -3,7 +3,7 @@ from math import ceil
 
 from vpython import color, curve, cylinder, rate, scene, sphere, vector
 
-from dirabo.chem.i_keybd import bind_keyboard_controls
+from dirabo.chem.keybd_handler import bind_keyboard_controls
 from dirabo.chem.math import Vec3
 from dirabo.chem.particles import (
     SIMULATION_DT,
@@ -16,6 +16,7 @@ from dirabo.chem.particles import (
     integrate_electrons,
     recenter_system,
 )
+from dirabo.chem.psystems import get_color
 
 
 def _record_nuclear_trace(
@@ -114,15 +115,10 @@ def show_molecules(molecules: MoleculeCluster) -> None:
     }
 
     for atom in atoms:
-        atom_color = {
-            "O": color.red,
-            "Na": color.orange,
-            "Cl": color.green,
-        }.get(atom.element, color.white)
         atom.visual = sphere(
             pos=vector(*atom.position),
             radius=atom.display_radius,
-            color=atom_color,
+            color=vector(*get_color(atom.element)),
         )
         atom.normal_display_radius = atom.display_radius
 
