@@ -4,8 +4,8 @@ import math
 import cv2
 from tqdm import tqdm
 
-INPUT_PATH = Path("C:/Users/dirk_claudia/Pictures/dji/igel_2026/DJI_20261030152457_0005_D.MP4")
-OUTPUT_PATH = Path("C:/Users/dirk_claudia/Pictures/dji/igel_2026/DJI_20261030152457_0005_D.20.avi")
+INPUT_PATH = Path("E:/DCIM/DJI_001/DJI_20261115155250_0002_D.MP4")
+OUTPUT_PATH = Path("C:/Users/dirk_claudia/Pictures/dji/igel_2026/DJI_20261115_0001_D.20.avi")
 FRAME_INTERVAL = 20
 
 
@@ -57,11 +57,12 @@ def main() -> None:
                         break
                 success, frame = capture.retrieve()
                 if not success:
-                    raise RuntimeError(f"Could not retrieve frame {frames_read}.")
-                writer.write(frame)
-                frames_written += 1
-                frames_read += FRAME_INTERVAL
-                progress.update(1)
+                    print(f"Could not retrieve frame {frames_read}.")
+                else:
+                    writer.write(frame)
+                    frames_written += 1
+                    frames_read += FRAME_INTERVAL
+                    progress.update(1)
 
         print(f"Expected {reported_frame_count} frames, but read {frames_read}.")
     finally:
