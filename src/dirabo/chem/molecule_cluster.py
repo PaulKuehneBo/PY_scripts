@@ -29,6 +29,23 @@ def _default_force_model() -> CoulombForceModel:
     return CoulombForceModel()
 
 
+def _rotate_vector(vector: Vec3, pitch: float, yaw: float) -> Vec3:
+    pitch_cos = cos(pitch)
+    pitch_sin = sin(pitch)
+    pitched = (
+        pitch_cos * vector[0] + pitch_sin * vector[2],
+        vector[1],
+        -pitch_sin * vector[0] + pitch_cos * vector[2],
+    )
+    yaw_cos = cos(yaw)
+    yaw_sin = sin(yaw)
+    return (
+        yaw_cos * pitched[0] - yaw_sin * pitched[1],
+        yaw_sin * pitched[0] + yaw_cos * pitched[1],
+        pitched[2],
+    )
+
+
 class MoleculeCluster:
     """Molekülcluster mit Geometrie, Platzierung und Simulationsmethoden."""
 
@@ -225,14 +242,13 @@ class MoleculeCluster:
 
     def _overlaps_at(
         self,
-        molecule: Molecule,
         proposed_center: Vec3,
         new_radii: tuple[float, ...],
+        rotated_atom_offsets: tuple[Vec3, ...],
         clearance: float,
     ) -> bool:
-        translation = subtract(proposed_center, molecule.center)
-        for atom, new_radius in zip(molecule.atoms, new_radii):
-            proposed_position = add(atom.position, translation)
+        for offset, new_radius in zip(rotated_atom_offsets, new_radii):
+            proposed_position = add(proposed_center, offset)
             for existing_atom in self.atoms:
                 minimum_distance = new_radius + self.placement_radius(existing_atom) + clearance
                 if length(subtract(proposed_position, existing_atom.position)) < minimum_distance:
@@ -263,6 +279,13 @@ class MoleculeCluster:
 
         updated_molecules = (*self.molecules, molecule)
         self._validate_unique_ids(updated_molecules)
+        molecule_center = molecule.center
+        pitch = self._rng.uniform(-pi / 2.0, pi / 2.0)
+        yaw = self._rng.uniform(0.0, 2.0 * pi)
+        rotated_atom_offsets = tuple(
+            _rotate_vector(subtract(atom.position, molecule_center), pitch, yaw)
+            for atom in molecule.atoms
+        )
         new_radii = tuple(self.placement_radius(atom) for atom in molecule.atoms)
         existing_radii = tuple(self.placement_radius(atom) for atom in self.atoms)
         maximum_pair_radius = max(new_radii, default=0.0) + max(existing_radii, default=0.0)
@@ -279,7 +302,12 @@ class MoleculeCluster:
         distance = self.size + molecule.radius + maximum_pair_radius + clearance + 1e-6
         proposed_center = add(cluster_center, scale(direction, distance))
         for _ in range(32):
-            if not self._overlaps_at(molecule, proposed_center, new_radii, clearance):
+            if not self._overlaps_at(
+                proposed_center,
+                new_radii,
+                rotated_atom_offsets,
+                clearance,
+            ):
                 break
             distance = distance * 2.0 + maximum_pair_radius + clearance + 1e-6
             proposed_center = add(cluster_center, scale(direction, distance))
@@ -292,7 +320,12 @@ class MoleculeCluster:
         for _ in range(PLACEMENT_SEARCH_LIMIT):
             candidate_distance = max(0.0, safe_distance - step)
             candidate_center = add(cluster_center, scale(direction, candidate_distance))
-            if self._overlaps_at(molecule, candidate_center, new_radii, clearance):
+            if self._overlaps_at(
+                candidate_center,
+                new_radii,
+                rotated_atom_offsets,
+                clearance,
+            ):
                 colliding_distance = candidate_distance
                 break
             safe_distance = candidate_distance
@@ -305,23 +338,34 @@ class MoleculeCluster:
                     break
                 middle_distance = (safe_distance + colliding_distance) / 2.0
                 middle_center = add(cluster_center, scale(direction, middle_distance))
-                if self._overlaps_at(molecule, middle_center, new_radii, clearance):
+                if self._overlaps_at(
+                    middle_center,
+                    new_radii,
+                    rotated_atom_offsets,
+                    clearance,
+                ):
                     colliding_distance = middle_distance
                 else:
                     safe_distance = middle_distance
             proposed_center = add(cluster_center, scale(direction, safe_distance))
 
-        translation = subtract(proposed_center, molecule.center)
-        for atom in molecule.atoms:
-            atom.position = add(atom.position, translation)
+        for atom, offset in zip(molecule.atoms, rotated_atom_offsets):
+            atom.position = add(proposed_center, offset)
+            atom.velocity = _rotate_vector(atom.velocity, pitch, yaw)
         for electron in molecule_electrons:
-            electron.position = add(electron.position, translation)
+            electron.position = add(
+                proposed_center,
+                _rotate_vector(subtract(electron.position, molecule_center), pitch, yaw),
+            )
+            electron.velocity = _rotate_vector(electron.velocity, pitch, yaw)
+            electron.direction = _rotate_vector(electron.direction, pitch, yaw)
+            electron.orbit_normal = _rotate_vector(electron.orbit_normal, pitch, yaw)
 
         self.molecules = updated_molecules
         self._refresh_particles()
 
     @staticmethod
-    def _brownian_velocity_kick(dt: float, velocity_factor: float = 1.0) -> Vec3:
+    def brownian_velocity_kick(dt: float, velocity_factor: float = 1.0) -> Vec3:
         if BROWNIAN_VELOCITY_AMPLITUDE < 0:
             raise ValueError("Die Brownsche Bewegungsamplitude darf nicht negativ sein")
         if DAMPING_REFERENCE_DT <= 0:
@@ -401,7 +445,7 @@ class MoleculeCluster:
                 add(atom.velocity, scale(applied_force, dt / atom.core_mass)),
                 DAMPING_FACTOR ** (dt / DAMPING_REFERENCE_DT),
             )
-            atom.velocity = add(atom.velocity, self._brownian_velocity_kick(dt))
+            atom.velocity = add(atom.velocity, self.brownian_velocity_kick(dt))
             atom.position = add(atom.position, scale(atom.velocity, dt))
 
         for electron in self.electrons:
@@ -422,7 +466,7 @@ class MoleculeCluster:
             )
             electron.velocity = add(
                 electron.velocity,
-                self._brownian_velocity_kick(dt, velocity_factor),
+                self.brownian_velocity_kick(dt, velocity_factor),
             )
             electron.advance(atom, updated_forces[electron.electron_id], dt)
 

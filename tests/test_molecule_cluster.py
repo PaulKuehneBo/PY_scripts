@@ -47,7 +47,10 @@ class MoleculeClusterTests(unittest.TestCase):
             sum(atom.position[axis] for atom in molecule.atoms) / len(molecule.atoms)
             for axis in range(3)
         )
-        expected_radius = max(length(subtract(atom.position, center)) for atom in molecule.atoms)
+        expected_radius = max(
+            length(subtract(atom.position, center)) + atom.electron_radius
+            for atom in molecule.atoms
+        )
 
         self.assertEqual(molecule.center, center)
         self.assertAlmostEqual(molecule.radius, expected_radius)
@@ -56,9 +59,12 @@ class MoleculeClusterTests(unittest.TestCase):
         self.assertEqual(cluster.center, molecule.center)
         self.assertAlmostEqual(cluster.size, molecule.radius)
 
-    def test_add_places_molecule_without_sphere_overlaps(self) -> None:
+    def test_add_rotates_and_places_molecule_without_sphere_overlaps(self) -> None:
         first = create_water_molecule("H2O-1")
         second = create_water_molecule("H2O-2")
+        original_positions = tuple(atom.position for atom in second.atoms)
+        first_electron_direction = second.bonds[0].electrons[0].direction
+        first_electron_normal = second.bonds[0].electrons[0].orbit_normal
         cluster = MoleculeCluster(first, rng=Random(7))
 
         cluster.add(second)
@@ -74,6 +80,23 @@ class MoleculeClusterTests(unittest.TestCase):
                 )
                 actual_distance = length(subtract(first_atom.position, second_atom.position))
                 self.assertGreaterEqual(actual_distance + 1e-8, minimum_distance)
+
+        for first_index, first_atom in enumerate(second.atoms):
+            for second_index in range(first_index + 1, len(second.atoms)):
+                original_distance = length(
+                    subtract(original_positions[first_index], original_positions[second_index])
+                )
+                rotated_distance = length(
+                    subtract(first_atom.position, second.atoms[second_index].position)
+                )
+                self.assertAlmostEqual(original_distance, rotated_distance)
+
+        self.assertGreater(
+            max(atom.position[2] for atom in second.atoms),
+            min(atom.position[2] for atom in second.atoms),
+        )
+        self.assertNotEqual(second.bonds[0].electrons[0].direction, first_electron_direction)
+        self.assertNotEqual(second.bonds[0].electrons[0].orbit_normal, first_electron_normal)
 
     def test_duplicate_ids_leave_cluster_unchanged(self) -> None:
         first = create_water_molecule("H2O-1")
