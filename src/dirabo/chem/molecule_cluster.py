@@ -20,7 +20,7 @@ from .particles import (
     ParticleState,
 )
 
-PLACEMENT_RADIUS_FACTOR = 1.0
+PLACEMENT_RADIUS_FACTOR = 3.0
 PLACEMENT_SEARCH_LIMIT = 256
 PLACEMENT_SEARCH_TOLERANCE = 1e-5
 
@@ -210,18 +210,15 @@ class MoleculeCluster:
     @property
     def size(self) -> float:
         cluster_center = self.center
-        return max(
-            length(subtract(molecule.center, cluster_center)) + molecule.radius
-            for molecule in self.molecules
-        )
+        return max(length(subtract(molecule.center, cluster_center)) + molecule.radius for molecule in self.molecules)
 
     @staticmethod
-    def _placement_radius(atom: Atom) -> float:
+    def placement_radius(atom: Atom) -> float:
         if not isfinite(PLACEMENT_RADIUS_FACTOR) or PLACEMENT_RADIUS_FACTOR < 0:
             raise ValueError("PLACEMENT_RADIUS_FACTOR muss endlich und nicht negativ sein")
-        if not isfinite(atom.display_radius) or atom.display_radius < 0:
+        if not isfinite(atom.electron_radius) or atom.electron_radius < 0:
             raise ValueError("Darstellungsradien müssen endlich und nicht negativ sein")
-        radius = atom.display_radius * PLACEMENT_RADIUS_FACTOR
+        radius = atom.electron_radius * PLACEMENT_RADIUS_FACTOR
         if not isfinite(radius) or radius < 0:
             raise ValueError("Platzierungsradien müssen endlich und nicht negativ sein")
         return radius
@@ -237,9 +234,7 @@ class MoleculeCluster:
         for atom, new_radius in zip(molecule.atoms, new_radii):
             proposed_position = add(atom.position, translation)
             for existing_atom in self.atoms:
-                minimum_distance = (
-                    new_radius + self._placement_radius(existing_atom) + clearance
-                )
+                minimum_distance = new_radius + self.placement_radius(existing_atom) + clearance
                 if length(subtract(proposed_position, existing_atom.position)) < minimum_distance:
                     return True
         return False
@@ -268,8 +263,8 @@ class MoleculeCluster:
 
         updated_molecules = (*self.molecules, molecule)
         self._validate_unique_ids(updated_molecules)
-        new_radii = tuple(self._placement_radius(atom) for atom in molecule.atoms)
-        existing_radii = tuple(self._placement_radius(atom) for atom in self.atoms)
+        new_radii = tuple(self.placement_radius(atom) for atom in molecule.atoms)
+        existing_radii = tuple(self.placement_radius(atom) for atom in self.atoms)
         maximum_pair_radius = max(new_radii, default=0.0) + max(existing_radii, default=0.0)
         direction_z = self._rng.uniform(-1.0, 1.0)
         direction_angle = self._rng.uniform(0.0, 2.0 * pi)
@@ -371,10 +366,7 @@ class MoleculeCluster:
         inter_molecular_bond_forces_enabled: bool = True,
     ) -> None:
         lone_pair_electron_ids = {
-            electron.electron_id
-            for item in self.molecules
-            for pair in item.lone_pairs
-            for electron in pair.electrons
+            electron.electron_id for item in self.molecules for pair in item.lone_pairs for electron in pair.electrons
         }
         atoms_by_id = {atom.atom_id: atom for atom in self.atoms}
         reactions_by_atom = {atom.atom_id: (0.0, 0.0, 0.0) for atom in self.atoms}
@@ -426,9 +418,7 @@ class MoleculeCluster:
         for electron in self.electrons:
             atom = atoms_by_id[electron.atom_id]
             velocity_factor = (
-                LONE_PAIR_BROWNIAN_VELOCITY_FACTOR
-                if electron.electron_id in lone_pair_electron_ids
-                else 1.0
+                LONE_PAIR_BROWNIAN_VELOCITY_FACTOR if electron.electron_id in lone_pair_electron_ids else 1.0
             )
             electron.velocity = add(
                 electron.velocity,

@@ -17,14 +17,17 @@ class KeyboardControls:
         molecules: MoleculeCluster,
         traces: dict[str, NuclearTrace],
         molecule_bounds: tuple[Any, ...] = (),
+        atom_clearance: tuple[Any, ...] = (),
         start_paused: bool = False,
     ) -> None:
         self.molecules = molecules
         self.traces = traces
-        self.molecule_bounds = molecule_bounds
         self.small_nuclei = False
         self.traces_visible = True
+        self.molecule_bounds = molecule_bounds
         self.molecule_bounds_visible = False
+        self.atom_clearance = atom_clearance
+        self.atom_clearance_visible = False
         self.paused = start_paused
         self.inter_molecular_bond_forces_enabled = True
 
@@ -43,6 +46,12 @@ class KeyboardControls:
                 bound.visible = self.molecule_bounds_visible
             state = "an" if self.molecule_bounds_visible else "aus"
             print(f"Molekülhüllen: {state}")
+        elif key == "c":
+            self.atom_clearance_visible = not self.atom_clearance_visible
+            for clearance in self.atom_clearance:
+                clearance.visible = self.atom_clearance_visible
+            state = "an" if self.atom_clearance_visible else "aus"
+            print(f"Atomfreiraum: {state}")
         elif key == "t":
             self.traces_visible = not self.traces_visible
             for trace in self.traces.values():
@@ -66,9 +75,10 @@ def bind_keyboard_controls(
     molecules: MoleculeCluster,
     traces: dict[str, NuclearTrace],
     molecule_bounds: tuple[Any, ...] = (),
+    atom_clearance: tuple[Any, ...] = (),
     start_paused: bool = False,
 ) -> KeyboardControls:
-    controls = KeyboardControls(molecules, traces, molecule_bounds, start_paused)
+    controls = KeyboardControls(molecules, traces, molecule_bounds, atom_clearance, start_paused)
     scene.bind("keydown", controls.handle_keydown)
     print(
         "Tastatur: n=Atomgröße, m=Molekülhüllen, t=Atomkern-Traces, "

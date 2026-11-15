@@ -168,11 +168,7 @@ def create_bond(
     electron_direction_offsets: tuple[Vec3, Vec3] = ((0.0, 0.0, 0.0), (0.0, 0.0, 0.0)),
 ) -> Bond:
     """Erzeugt eine Bindung mit je einem Elektron an beiden Atomkernen."""
-    first_electron_id, second_electron_id = (
-        (f"{bond_id}:e1", f"{bond_id}:e2")
-        if electron_ids is None
-        else electron_ids
-    )
+    first_electron_id, second_electron_id = (f"{bond_id}:e1", f"{bond_id}:e2") if electron_ids is None else electron_ids
     first_z_offset, second_z_offset = electron_z_offsets
     first_orbit_direction, second_orbit_direction = orbit_directions
     first_direction_offset, second_direction_offset = electron_direction_offsets
@@ -338,12 +334,9 @@ class CoulombForceModel:
             or self.inter_molecular_nucleus_repulsion_factor < 0
         ):
             raise ValueError("Der Faktor der intermolekularen Kernabstoßung muss endlich und nicht negativ sein")
-        if (
-            self.inter_molecular_nucleus_repulsion_radius is not None
-            and (
-                not isfinite(self.inter_molecular_nucleus_repulsion_radius)
-                or self.inter_molecular_nucleus_repulsion_radius <= 0
-            )
+        if self.inter_molecular_nucleus_repulsion_radius is not None and (
+            not isfinite(self.inter_molecular_nucleus_repulsion_radius)
+            or self.inter_molecular_nucleus_repulsion_radius <= 0
         ):
             raise ValueError("Der Radius der intermolekularen Kernabstoßung muss positiv sein")
 
@@ -403,9 +396,7 @@ class CoulombForceModel:
         )
         parent_nucleus_positions = np.asarray(
             [
-                particle.position
-                if particle.parent_nucleus_position is None
-                else particle.parent_nucleus_position
+                particle.position if particle.parent_nucleus_position is None else particle.parent_nucleus_position
                 for particle in particles
             ],
             dtype=np.float64,
@@ -446,8 +437,8 @@ class CoulombForceModel:
         softening_squared = self.softening * self.softening
         softened_distances_squared = distances_squared + softening_squared
         charge_products = charges[first_indices] * charges[second_indices]
-        force_scales = self.strength * charge_products / (
-            softened_distances_squared * np.sqrt(softened_distances_squared)
+        force_scales = (
+            self.strength * charge_products / (softened_distances_squared * np.sqrt(softened_distances_squared))
         )
         inter_molecular_nucleus_pairs = is_nucleus_nucleus & is_inter_molecular
         inter_molecular_nucleus_pair_indices = np.flatnonzero(inter_molecular_nucleus_pairs)
@@ -456,8 +447,7 @@ class CoulombForceModel:
             second_nucleus_indices = second_indices[inter_molecular_nucleus_pair_indices]
             if self.inter_molecular_nucleus_repulsion_radius is None:
                 pair_radii = (
-                    nucleus_repulsion_radii[first_nucleus_indices]
-                    + nucleus_repulsion_radii[second_nucleus_indices]
+                    nucleus_repulsion_radii[first_nucleus_indices] + nucleus_repulsion_radii[second_nucleus_indices]
                 ) / 2.0
             else:
                 pair_radii = np.full(
@@ -471,9 +461,7 @@ class CoulombForceModel:
             pair_distances = np.sqrt(distances_squared[inter_molecular_nucleus_pair_indices])
             normalized_distances = pair_distances / pair_radii
             gaussian = np.exp(-np.log(10.0) * normalized_distances**2)
-            multipliers = 1.0 + (
-                self.inter_molecular_nucleus_repulsion_factor - 1.0
-            ) * gaussian
+            multipliers = 1.0 + (self.inter_molecular_nucleus_repulsion_factor - 1.0) * gaussian
             force_scales[inter_molecular_nucleus_pair_indices] *= multipliers
 
         electron_nucleus_pair_indices = np.flatnonzero(is_electron_nucleus & active_pairs)
@@ -507,9 +495,7 @@ class CoulombForceModel:
                 pair_distances = np.sqrt(distances_squared[pair_indices])
                 taper_mask = has_target_radius & (pair_distances < cutoff_radii)
                 factors = np.ones(len(pair_indices), dtype=np.float64)
-                factors[taper_mask] = (
-                    pair_distances[taper_mask] / cutoff_radii[taper_mask]
-                ) ** 3
+                factors[taper_mask] = (pair_distances[taper_mask] / cutoff_radii[taper_mask]) ** 3
                 radius_factors[pair_indices] = factors
 
             if np.any(~inter_pair_mask):
@@ -520,18 +506,13 @@ class CoulombForceModel:
                 parent_nuclear_radii_for_pairs = parent_nuclear_radii[source_indices_for_pairs]
                 has_target_radius = ~np.isnan(target_nuclear_radii_for_pairs)
                 if np.any(target_nuclear_radii_for_pairs[has_target_radius] <= 0) or np.any(
-                    parent_nuclear_radii_for_pairs[
-                        has_target_radius & ~np.isnan(parent_nuclear_radii_for_pairs)
-                    ]
-                    <= 0
+                    parent_nuclear_radii_for_pairs[has_target_radius & ~np.isnan(parent_nuclear_radii_for_pairs)] <= 0
                 ):
                     raise ValueError("Kernradien müssen positiv sein")
 
                 source_parent_positions = parent_nucleus_positions[source_indices_for_pairs]
                 radius_displacements = positions[target_indices_for_pairs] - source_parent_positions
-                radius_distances = np.sqrt(
-                    np.einsum("ij,ij->i", radius_displacements, radius_displacements)
-                )
+                radius_distances = np.sqrt(np.einsum("ij,ij->i", radius_displacements, radius_displacements))
                 combined_radii = target_nuclear_radii_for_pairs + np.where(
                     np.isnan(parent_nuclear_radii_for_pairs),
                     0.0,
@@ -574,9 +555,7 @@ class CoulombForceModel:
                 pair_forces[electron_nucleus_pair_indices],
             )
             np.add.at(nucleus_electron_values, target_nucleus_indices, target_forces)
-            nucleus_indices_by_atom = {
-                particles[index].atom_id: index for index in nucleus_indices
-            }
+            nucleus_indices_by_atom = {particles[index].atom_id: index for index in nucleus_indices}
             owner_nucleus_indices = np.fromiter(
                 (nucleus_indices_by_atom[atom_ids[index]] for index in source_electron_indices),
                 dtype=np.intp,
@@ -609,9 +588,9 @@ class CoulombForceModel:
             pair_displacements = pair_displacements[nonzero_pairs]
             pair_distances = pair_distances[nonzero_pairs]
             deviations = pair_distances - self.pair_target_length
-            pair_force_values = (
-                -self.pair_length_stiffness * deviations / pair_distances
-            )[:, np.newaxis] * pair_displacements
+            pair_force_values = (-self.pair_length_stiffness * deviations / pair_distances)[
+                :, np.newaxis
+            ] * pair_displacements
             np.add.at(particle_force_values, pair_first_indices, pair_force_values)
             np.add.at(particle_force_values, pair_second_indices, -pair_force_values)
 
@@ -692,7 +671,7 @@ class Molecule:
     @property
     def radius(self) -> float:
         molecule_center = self.center
-        return max(length(subtract(atom.position, molecule_center)) for atom in self.atoms)
+        return max(length(subtract(atom.position, molecule_center)) + atom.electron_radius for atom in self.atoms)
 
 
 def _interaction_type(first: ParticleState, second: ParticleState) -> str:

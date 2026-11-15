@@ -123,6 +123,17 @@ def show_molecules(molecules: MoleculeCluster, *, start_paused: bool = False) ->
         for molecule in molecules.molecules
     )
 
+    atom_clearance = tuple(
+        sphere(
+            pos=vector(*atom.position),
+            radius=MoleculeCluster.placement_radius(atom),
+            color=color.red,
+            opacity=0.15,
+            visible=False,
+        )
+        for atom in atoms
+    )
+
     for atom in atoms:
         atom.visual = sphere(
             pos=vector(*atom.position),
@@ -157,7 +168,8 @@ def show_molecules(molecules: MoleculeCluster, *, start_paused: bool = False) ->
     controls = bind_keyboard_controls(
         molecules,
         traces,
-        molecule_bounds,
+        molecule_bounds=molecule_bounds,
+        atom_clearance=atom_clearance,
         start_paused=start_paused,
     )
     trace_sample_index = 0
@@ -188,6 +200,10 @@ def show_molecules(molecules: MoleculeCluster, *, start_paused: bool = False) ->
         for molecule, bound in zip(molecules.molecules, molecule_bounds):
             bound.pos = vector(*molecule.center)
             bound.radius = max(molecule.radius, 1e-6)
+
+        for atom, clearance in zip(atoms, atom_clearance):
+            clearance.pos = vector(*atom.position)
+            clearance.radius = MoleculeCluster.placement_radius(atom)
 
         for bond in bonds:
             first, second = bond.electrons
