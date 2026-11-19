@@ -147,7 +147,7 @@ def show_molecules(molecules: MoleculeCluster, *, start_paused: bool = False) ->
             pos=vector(0, 0, 0),
             axis=vector(0, 0, 0),
             radius=0.035,
-            color=color.white,
+            color=color.blue,
         )
 
     for electron in electrons:

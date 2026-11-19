@@ -19,10 +19,24 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "Python: devl Alkohol",
+            "name": "Python: Molecular-Soup",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/devl/molecular/molecular_ethanol.py",
+            "program": "${workspaceFolder}/devl/molecular/molecular_soup.py",
+            "args": [ "--ethanol", "2",
+                      "--dimethyl_ether", "1", 
+                      "--acetone", "3", 
+                      "--nucleus-repulsion-factor", "5",
+                      "--nucleus-repulsion-radius", "5", 
+                      "--stop-at-start" ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: devl cyclic",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/devl/molecular/molecular_cyclic.py",
+            "args": [ "--ring", "benzol", "--C1", "hydroxyl", "--C3", "amino" ],
             "console": "integratedTerminal"
         },
         {

@@ -4,7 +4,7 @@ import math
 import cv2
 from tqdm import tqdm
 
-INPUT_PATH = Path("E:/DCIM/DJI_001/DJI_20261115155250_0002_D.MP4")
+INPUT_PATH = Path("E:/DCIM/DJI_001/DJI_20261116153548_0001_D.MP4")
 OUTPUT_PATH = Path("C:/Users/dirk_claudia/Pictures/dji/igel_2026/DJI_20261115_0001_D.20.avi")
 FRAME_INTERVAL = 20
 

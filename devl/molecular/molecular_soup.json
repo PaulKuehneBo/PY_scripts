@@ -1,0 +1,200 @@
+{
+  "$schema": "../../src/dirabo/chem/generic_molecular_groups.schema.json",
+  "schema_version": 1,
+  "groups": {
+    "ethyl": {
+      "atoms": [
+        {"id": "C1", "element": "C", "position": [0.0, 0.0, 0.0], "lone_pairs": 0},
+        {"id": "C2", "element": "C", "position": [1.54, 0.0, 0.0], "lone_pairs": 0},
+        {"id": "H11", "element": "H", "position": [-0.36, 1.03, 0.0], "lone_pairs": 0},
+        {"id": "H12", "element": "H", "position": [-0.36, -0.515, 0.892], "lone_pairs": 0},
+        {"id": "H13", "element": "H", "position": [-0.36, -0.515, -0.892], "lone_pairs": 0},
+        {"id": "H21", "element": "H", "position": [1.90, 0.515, 0.892], "lone_pairs": 0},
+        {"id": "H22", "element": "H", "position": [1.90, 0.515, -0.892], "lone_pairs": 0}
+      ],
+      "bonds": [
+        {"id": "C1-C2", "from": "C1", "to": "C2"},
+        {"id": "C1-H11", "from": "C1", "to": "H11"},
+        {"id": "C1-H12", "from": "C1", "to": "H12"},
+        {"id": "C1-H13", "from": "C1", "to": "H13"},
+        {"id": "C2-H21", "from": "C2", "to": "H21"},
+        {"id": "C2-H22", "from": "C2", "to": "H22"}
+      ],
+      "ports": {
+        "terminal": "C2"
+      }
+    },
+    "hydroxyl": {
+      "atoms": [
+        {"id": "O", "element": "O", "position": [0.0, 0.0, 0.0], "lone_pairs": 2},
+        {"id": "H", "element": "H", "position": [0.32, 0.905, 0.0], "lone_pairs": 0}
+      ],
+      "bonds": [
+        {"id": "O-H", "from": "O", "to": "H"}
+      ],
+      "ports": {
+        "carbon": "O"
+      }
+    },
+    "methyl": {
+      "atoms": [
+        {"id": "C", "element": "C", "position": [0.0, 0.0, 0.0], "lone_pairs": 0},
+        {"id": "H1", "element": "H", "position": [-0.36, 1.03, 0.0], "lone_pairs": 0},
+        {"id": "H2", "element": "H", "position": [-0.36, -0.515, 0.892], "lone_pairs": 0},
+        {"id": "H3", "element": "H", "position": [-0.36, -0.515, -0.892], "lone_pairs": 0}
+      ],
+      "bonds": [
+        {
+          "id": "C-H1",
+          "from": "C",
+          "to": "H1",
+          "electron_direction_offsets": [[0.0, 0.0, 0.12], [0.0, 0.0, -0.12]]
+        },
+        {
+          "id": "C-H2",
+          "from": "C",
+          "to": "H2",
+          "electron_direction_offsets": [[0.0, 0.0, 0.12], [0.0, 0.0, -0.12]]
+        },
+        {
+          "id": "C-H3",
+          "from": "C",
+          "to": "H3",
+          "electron_direction_offsets": [[0.0, 0.0, 0.12], [0.0, 0.0, -0.12]]
+        }
+      ],
+      "ports": {
+        "carbon": "C"
+      }
+    },
+    "ether_oxygen": {
+      "atoms": [
+        {"id": "O", "element": "O", "position": [0.0, 0.0, 0.0], "lone_pairs": 2}
+      ],
+      "ports": {
+        "left": "O",
+        "right": "O"
+      }
+    },
+    "carbonyl": {
+      "atoms": [
+        {"id": "C", "element": "C", "position": [0.0, 0.0, 0.0], "lone_pairs": 0},
+        {"id": "O", "element": "O", "position": [0.0, 1.23, 0.0], "lone_pairs": 2}
+      ],
+      "bonds": [
+        {
+          "id": "C=O:sigma",
+          "from": "C",
+          "to": "O",
+          "electron_direction_offsets": [[0.0, 0.0, 0.12], [0.0, 0.0, -0.12]]
+        },
+        {
+          "id": "C=O:pi",
+          "from": "C",
+          "to": "O",
+          "electron_direction_offsets": [[0.0, 0.0, 0.22], [0.0, 0.0, 0.22]]
+        }
+      ],
+      "ports": {
+        "left": "C",
+        "right": "C"
+      }
+    }
+  },
+  "molecules": {
+    "ethanol": {
+      "name": "Ethanol",
+      "components": [
+        {
+          "id": "ethyl",
+          "group": "ethyl",
+          "position": [0.0, 0.0, 0.0],
+          "rotation_degrees": [0.0, 0.0, 0.0]
+        },
+        {
+          "id": "hydroxyl",
+          "group": "hydroxyl",
+          "position": [3.0, 0.0, 0.0],
+          "rotation_degrees": [0.0, 0.0, 0.0]
+        }
+      ],
+      "connections": [
+        {
+          "id": "C2-O",
+          "from": {"component": "ethyl", "port": "terminal"},
+          "to": {"component": "hydroxyl", "port": "carbon"}
+        }
+      ]
+    },
+    "dimethyl_ether": {
+      "name": "Dimethylether",
+      "components": [
+        {
+          "id": "methyl_left",
+          "group": "methyl",
+          "position": [0.0, 0.0, 0.0],
+          "rotation_degrees": [0.0, 0.0, 0.0]
+        },
+        {
+          "id": "oxygen",
+          "group": "ether_oxygen",
+          "position": [1.43, 0.0, 0.0],
+          "rotation_degrees": [0.0, 0.0, 0.0]
+        },
+        {
+          "id": "methyl_right",
+          "group": "methyl",
+          "position": [2.86, 0.0, 0.0],
+          "rotation_degrees": [0.0, 0.0, 180.0]
+        }
+      ],
+      "connections": [
+        {
+          "id": "C1-O",
+          "from": {"component": "methyl_left", "port": "carbon"},
+          "to": {"component": "oxygen", "port": "left"}
+        },
+        {
+          "id": "O-C2",
+          "from": {"component": "oxygen", "port": "right"},
+          "to": {"component": "methyl_right", "port": "carbon"}
+        }
+      ]
+    },
+    "acetone": {
+      "name": "Aceton (Propanon)",
+      "components": [
+        {
+          "id": "methyl_left",
+          "group": "methyl",
+          "position": [-1.54, 0.0, 0.0],
+          "rotation_degrees": [0.0, 0.0, 0.0]
+        },
+        {
+          "id": "carbonyl",
+          "group": "carbonyl",
+          "position": [0.0, 0.0, 0.0],
+          "rotation_degrees": [0.0, 0.0, 0.0]
+        },
+        {
+          "id": "methyl_right",
+          "group": "methyl",
+          "position": [1.54, 0.0, 0.0],
+          "rotation_degrees": [0.0, 0.0, 180.0]
+        }
+      ],
+      "connections": [
+        {
+          "id": "C1-carbonyl",
+          "from": {"component": "methyl_left", "port": "carbon"},
+          "to": {"component": "carbonyl", "port": "left"}
+        },
+        {
+          "id": "carbonyl-C2",
+          "from": {"component": "carbonyl", "port": "right"},
+          "to": {"component": "methyl_right", "port": "carbon"}
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,207 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dirabo.dev/schemas/generic-molecular-groups-v1.json",
+  "title": "Dirabo generic molecular groups",
+  "type": "object",
+  "required": ["schema_version", "groups", "molecules"],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "groups": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "$ref": "#/$defs/group"
+      }
+    },
+    "molecules": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/molecule"
+      }
+    }
+  },
+  "$defs": {
+    "vector3": {
+      "type": "array",
+      "description": "Cartesian coordinates or XYZ Euler angles, depending on the field.",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "atom": {
+      "type": "object",
+      "required": ["id", "element", "position"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "element": {
+          "type": "string",
+          "minLength": 1
+        },
+        "position": {
+          "description": "Atom coordinates local to this group, in angstroms.",
+          "$ref": "#/$defs/vector3"
+        },
+        "lone_pairs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "free_electrons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/vector3"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "bond": {
+      "type": "object",
+      "required": ["id", "from", "to"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "from": {
+          "type": "string",
+          "minLength": 1
+        },
+        "to": {
+          "type": "string",
+          "minLength": 1
+        },
+        "electron_direction_offsets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/vector3"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        }
+      },
+      "additionalProperties": false
+    },
+    "group": {
+      "type": "object",
+      "required": ["atoms"],
+      "properties": {
+        "atoms": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/atom"
+          }
+        },
+        "bonds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/bond"
+          }
+        },
+        "ports": {
+          "description": "Named attachment points that refer to atom IDs in this group.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "component": {
+      "type": "object",
+      "required": ["id", "group"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "group": {
+          "type": "string",
+          "minLength": 1
+        },
+        "position": {
+          "description": "Translation of the group's local origin, in angstroms.",
+          "$ref": "#/$defs/vector3"
+        },
+        "rotation_degrees": {
+          "description": "Euler rotations in degrees, applied X then Y then Z.",
+          "$ref": "#/$defs/vector3"
+        }
+      },
+      "additionalProperties": false
+    },
+    "endpoint": {
+      "type": "object",
+      "required": ["component", "port"],
+      "properties": {
+        "component": {
+          "type": "string",
+          "minLength": 1
+        },
+        "port": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "connection": {
+      "type": "object",
+      "required": ["id", "from", "to"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "from": {
+          "$ref": "#/$defs/endpoint"
+        },
+        "to": {
+          "$ref": "#/$defs/endpoint"
+        }
+      },
+      "additionalProperties": false
+    },
+    "molecule": {
+      "type": "object",
+      "required": ["components"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "components": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/component"
+          }
+        },
+        "connections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/connection"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

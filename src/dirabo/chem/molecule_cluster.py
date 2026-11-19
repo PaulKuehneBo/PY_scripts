@@ -3,6 +3,7 @@ from __future__ import annotations
 from math import cos, isfinite, pi, sin, sqrt
 from random import Random, gauss
 
+from .args import CHEM_RENDER_ARGS
 from .math import Vec3, add, length, scale, subtract
 from .particles import (
     BOND_MINIMUM_LENGTH,
@@ -26,7 +27,10 @@ PLACEMENT_SEARCH_TOLERANCE = 1e-5
 
 
 def _default_force_model() -> CoulombForceModel:
-    return CoulombForceModel()
+    return CoulombForceModel(
+        inter_molecular_nucleus_repulsion_factor=CHEM_RENDER_ARGS.nucleus_repulsion_factor,
+        inter_molecular_nucleus_repulsion_radius=CHEM_RENDER_ARGS.nucleus_repulsion_radius,
+    )
 
 
 def _rotate_vector(vector: Vec3, pitch: float, yaw: float) -> Vec3:
@@ -283,8 +287,7 @@ class MoleculeCluster:
         pitch = self._rng.uniform(-pi / 2.0, pi / 2.0)
         yaw = self._rng.uniform(0.0, 2.0 * pi)
         rotated_atom_offsets = tuple(
-            _rotate_vector(subtract(atom.position, molecule_center), pitch, yaw)
-            for atom in molecule.atoms
+            _rotate_vector(subtract(atom.position, molecule_center), pitch, yaw) for atom in molecule.atoms
         )
         new_radii = tuple(self.placement_radius(atom) for atom in molecule.atoms)
         existing_radii = tuple(self.placement_radius(atom) for atom in self.atoms)
