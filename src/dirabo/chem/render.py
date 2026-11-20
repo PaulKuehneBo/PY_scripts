@@ -14,7 +14,9 @@ from dirabo.chem.particles import (
     NuclearTrace,
 )
 from dirabo.chem.molecule_cluster import MoleculeCluster
-from dirabo.chem.psystems import get_color
+from dirabo.chem.psystems import PERIODIC_SYSTEM, get_color
+
+ATOM_CONNECTION_RADIUS = 0.9 * PERIODIC_SYSTEM["H"].display_radius
 
 
 def _record_nuclear_trace(
@@ -149,6 +151,19 @@ def show_molecules(molecules: MoleculeCluster, *, start_paused: bool = False) ->
             radius=0.035,
             color=color.blue,
         )
+        first_atom = atoms_by_id[bond.electrons[0].atom_id]
+        second_atom = atoms_by_id[bond.electrons[1].atom_id]
+        bond.atom_connection_visual = cylinder(
+            pos=vector(*first_atom.position),
+            axis=vector(
+                second_atom.position[0] - first_atom.position[0],
+                second_atom.position[1] - first_atom.position[1],
+                second_atom.position[2] - first_atom.position[2],
+            ),
+            radius=ATOM_CONNECTION_RADIUS,
+            color=color.cyan,
+            opacity=0.5,
+        )
 
     for electron in electrons:
         electron.visual = sphere(
@@ -211,6 +226,10 @@ def show_molecules(molecules: MoleculeCluster, *, start_paused: bool = False) ->
             end = second.visual.pos
             bond.visual.pos = start
             bond.visual.axis = end - start
+            first_atom = atoms_by_id[first.atom_id]
+            second_atom = atoms_by_id[second.atom_id]
+            bond.atom_connection_visual.pos = first_atom.visual.pos
+            bond.atom_connection_visual.axis = second_atom.visual.pos - first_atom.visual.pos
 
         for pair in lone_pairs:
             first, second = pair.electrons

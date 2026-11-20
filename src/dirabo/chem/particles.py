@@ -23,6 +23,7 @@ from .math import (
 ELECTRON_DISPLAY_RADIUS = 0.055
 NUCLEUS_REPULSION_FACTOR = 1.0
 BOND_MINIMUM_LENGTH = 0.22
+BONDED_NUCLEUS_REPULSION_RADIUS = 1.0
 
 
 @lru_cache(maxsize=32)
@@ -146,6 +147,7 @@ class Bond:
     electrons: tuple[Electron, Electron]
     minimum_length: float = BOND_MINIMUM_LENGTH
     visual: Any = field(default=None, init=False, repr=False, compare=False)
+    atom_connection_visual: Any = field(default=None, init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         ElectronPair(self.bond_id, self.electrons)
@@ -309,6 +311,8 @@ class CoulombForceModel:
 
     Der Faktor für intermolekulare Kernabstoßung skaliert nur Kern-Kern-Kräfte
     zwischen verschiedenen Molekülen; intramolekulare Kräfte bleiben unverändert.
+    Bei gebundenen Atompaaren wird die Abstoßung für jede zusätzliche Bindung
+    gaußförmig bis zum entsprechenden Vielfachen verstärkt.
     Der Exzess über den normalen Coulomb-Faktor klingt gaußförmig ab; der
     Radius bezeichnet den Abstand, bei dem noch 10 % dieses Exzesses anliegen.
     """
@@ -371,6 +375,19 @@ class CoulombForceModel:
         pair_ids = tuple(particle.pair_id for particle in particles)
         atom_index_by_id = {atom_id: index for index, atom_id in enumerate(atom_ids)}
         atom_indices = np.fromiter((atom_index_by_id[atom_id] for atom_id in atom_ids), dtype=np.intp)
+        bonded_atoms_by_bond_id: dict[str, set[int]] = {}
+        for index, bond_id in enumerate(bond_ids):
+            if is_electron[index] and bond_id is not None:
+                bonded_atoms_by_bond_id.setdefault(bond_id, set()).add(atom_indices[index])
+        atom_count = len(atom_index_by_id)
+        bond_orders_by_atom_pair: dict[int, int] = {}
+        for bonded_atom_indices in bonded_atoms_by_bond_id.values():
+            if len(bonded_atom_indices) != 2:
+                raise ValueError("Eine Bindung muss genau zwei Atome verbinden")
+            first_atom_index, second_atom_index = sorted(bonded_atom_indices)
+            atom_pair_key = first_atom_index * atom_count + second_atom_index
+            bond_orders_by_atom_pair[atom_pair_key] = bond_orders_by_atom_pair.get(atom_pair_key, 0) + 1
+
         molecule_indices = np.fromiter(
             (-1 if molecule_id is None else molecule_id for molecule_id in molecule_ids),
             dtype=np.int64,
@@ -463,6 +480,39 @@ class CoulombForceModel:
             gaussian = np.exp(-np.log(10.0) * normalized_distances**2)
             multipliers = 1.0 + (self.inter_molecular_nucleus_repulsion_factor - 1.0) * gaussian
             force_scales[inter_molecular_nucleus_pair_indices] *= multipliers
+
+        nucleus_pair_indices = np.flatnonzero(is_nucleus_nucleus & ~is_inter_molecular)
+        if nucleus_pair_indices.size and bond_orders_by_atom_pair:
+            first_atom_indices = atom_indices[first_indices[nucleus_pair_indices]]
+            second_atom_indices = atom_indices[second_indices[nucleus_pair_indices]]
+            atom_pair_keys = (
+                np.minimum(first_atom_indices, second_atom_indices) * atom_count
+                + np.maximum(first_atom_indices, second_atom_indices)
+            )
+            sorted_bond_pair_keys = np.asarray(sorted(bond_orders_by_atom_pair), dtype=np.intp)
+            sorted_bond_orders = np.fromiter(
+                (bond_orders_by_atom_pair[key] for key in sorted_bond_pair_keys),
+                dtype=np.intp,
+                count=len(sorted_bond_pair_keys),
+            )
+            bond_order_locations = np.searchsorted(sorted_bond_pair_keys, atom_pair_keys)
+            matching_bond_pairs = bond_order_locations < len(sorted_bond_pair_keys)
+            matching_indices = np.flatnonzero(matching_bond_pairs)
+            matching_bond_pairs[matching_indices] = (
+                sorted_bond_pair_keys[bond_order_locations[matching_indices]] == atom_pair_keys[matching_indices]
+            )
+            bond_orders = np.zeros(len(nucleus_pair_indices), dtype=np.intp)
+            bond_orders[matching_bond_pairs] = sorted_bond_orders[bond_order_locations[matching_bond_pairs]]
+            bonded_pair_mask = bond_orders > 0
+            bonded_pair_indices = nucleus_pair_indices[bonded_pair_mask]
+            if bonded_pair_indices.size:
+                pair_distances = np.sqrt(distances_squared[bonded_pair_indices])
+                gaussian = np.exp(
+                    -np.log(10.0)
+                    * (pair_distances / BONDED_NUCLEUS_REPULSION_RADIUS) ** 2
+                )
+                multipliers = 1.0 + (bond_orders[bonded_pair_mask] - 1.0) * gaussian
+                force_scales[bonded_pair_indices] *= multipliers
 
         electron_nucleus_pair_indices = np.flatnonzero(is_electron_nucleus & active_pairs)
         radius_factors = np.ones(len(first_indices), dtype=np.float64)
