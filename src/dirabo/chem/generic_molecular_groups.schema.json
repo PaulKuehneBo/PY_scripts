@@ -41,7 +41,7 @@
     },
     "atom": {
       "type": "object",
-      "required": ["id", "element", "position"],
+      "required": ["id", "element"],
       "properties": {
         "id": {
           "type": "string",
@@ -84,14 +84,6 @@
           "type": "string",
           "minLength": 1
         },
-        "electron_direction_offsets": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/vector3"
-          },
-          "minItems": 2,
-          "maxItems": 2
-        }
       },
       "additionalProperties": false
     },

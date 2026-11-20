@@ -5,10 +5,40 @@ from pathlib import Path
 from dirabo.chem.generic_molecular_groups import GenericMolecularGroups
 from devl.molecular.molecular_soup import _parse_args, create_cluster
 
-CONFIG_PATH = Path(__file__).parents[1] / "devl" / "molecular" / "molecular_generic.json"
+CONFIG_PATH = Path(__file__).parents[1] / "devl" / "molecular" / "molecular_soup.json"
+SIMPLE_CONFIG_PATH = CONFIG_PATH
 
 
 class GenericMolecularGroupsTests(unittest.TestCase):
+    def test_simple_json_uses_layout_to_create_renderable_molecule(self) -> None:
+        library = GenericMolecularGroups.load(SIMPLE_CONFIG_PATH)
+        molecule = library.create_molecule("dimethyl_ether", "simple-test")
+        cluster = create_cluster(library, {"dimethyl_ether": 2})
+
+        self.assertEqual(library.molecule_names, ("ethanol", "dimethyl_ether", "acetone"))
+        self.assertEqual(len(molecule.atoms), 9)
+        self.assertEqual(len(molecule.bonds), 8)
+        self.assertEqual(len(molecule.lone_pairs), 2)
+        positions = {atom.atom_id: atom.position for atom in molecule.atoms}
+        self.assertTrue(all(len(position) == 3 for position in positions.values()))
+        self.assertEqual(len(cluster.molecules), 2)
+        self.assertEqual(len(cluster.atoms), 18)
+
+    def test_bond_electron_offsets_are_generated_without_json_values(self) -> None:
+        definition = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+
+        for group in definition["groups"].values():
+            for bond in group.get("bonds", []):
+                self.assertNotIn("electron_direction_offsets", bond)
+
+        molecule = GenericMolecularGroups(definition).create_molecule("acetone", "carbonyl-test")
+        carbonyl_bonds = [
+            bond
+            for bond in molecule.bonds
+            if ":carbonyl:C=O:" in bond.bond_id
+        ]
+        self.assertEqual(len(carbonyl_bonds), 2)
+
     def test_ethanol_is_assembled_from_json_group_components(self) -> None:
         library = GenericMolecularGroups.load(CONFIG_PATH)
         molecule = library.create_molecule("ethanol", instance_id="ethanol-test")

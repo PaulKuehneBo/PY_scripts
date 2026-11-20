@@ -169,25 +169,30 @@ def _rotation_matrix_from_vectors(a: np.ndarray, b: np.ndarray) -> np.ndarray:
 # ============================================================
 
 
-def _build_atom_graph(molecule):
+def _build_atom_graph(molecule, group_library=None):
 
     atom_types = {}
 
     bonds = []
 
     port_map = {}
+    library = GROUP_LIBRARY if group_library is None else group_library
 
     for component in molecule["components"]:
 
         component_id = component["id"]
         group_name = component["group"]
 
-        template = GROUP_LIBRARY[group_name]
+        template = library[group_name]
 
         # create global atoms for that component
-        for template_types in template["atoms"]:
-            atom_id = template_types["id"]
-            element = template_types["element"]
+        for template_atom in template["atoms"]:
+            if isinstance(template_atom, dict):
+                atom_id = template_atom["id"]
+                element = template_atom["element"]
+            else:
+                atom_id = template_atom
+                element = template["atoms"][template_atom]
 
             global_atom = f"{component_id}:{atom_id}"
             atom_types[global_atom] = element
@@ -288,6 +293,8 @@ def _place_recursive(atom_id, atom_types, children, positions, direction):
 def _generate_atom_positions(atom_types, bonds):
 
     graph = _build_graph(bonds)
+    for atom_id in atom_types:
+        graph.setdefault(atom_id, [])
 
     root = max(graph.keys(), key=lambda n: len(graph[n]))
 
@@ -305,9 +312,9 @@ def _generate_atom_positions(atom_types, bonds):
 # ============================================================
 
 
-def layout_molecule(molecule) -> list[AtomPlacement]:
+def layout_molecule(molecule, group_library=None) -> list[AtomPlacement]:
 
-    atom_types, bonds = _build_atom_graph(molecule)
+    atom_types, bonds = _build_atom_graph(molecule, group_library)
 
     positions = _generate_atom_positions(atom_types, bonds)
 

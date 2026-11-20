@@ -4,13 +4,13 @@
   "groups": {
     "ethyl": {
       "atoms": [
-        {"id": "C1", "element": "C", "position": [0.0, 0.0, 0.0], "lone_pairs": 0},
-        {"id": "C2", "element": "C", "position": [1.54, 0.0, 0.0], "lone_pairs": 0},
-        {"id": "H11", "element": "H", "position": [-0.36, 1.03, 0.0], "lone_pairs": 0},
-        {"id": "H12", "element": "H", "position": [-0.36, -0.515, 0.892], "lone_pairs": 0},
-        {"id": "H13", "element": "H", "position": [-0.36, -0.515, -0.892], "lone_pairs": 0},
-        {"id": "H21", "element": "H", "position": [1.90, 0.515, 0.892], "lone_pairs": 0},
-        {"id": "H22", "element": "H", "position": [1.90, 0.515, -0.892], "lone_pairs": 0}
+        {"id": "C1", "element": "C", "lone_pairs": 0},
+        {"id": "C2", "element": "C", "lone_pairs": 0},
+        {"id": "H11", "element": "H", "lone_pairs": 0},
+        {"id": "H12", "element": "H", "lone_pairs": 0},
+        {"id": "H13", "element": "H", "lone_pairs": 0},
+        {"id": "H21", "element": "H", "lone_pairs": 0},
+        {"id": "H22", "element": "H", "lone_pairs": 0}
       ],
       "bonds": [
         {"id": "C1-C2", "from": "C1", "to": "C2"},
@@ -26,8 +26,8 @@
     },
     "hydroxyl": {
       "atoms": [
-        {"id": "O", "element": "O", "position": [0.0, 0.0, 0.0], "lone_pairs": 2},
-        {"id": "H", "element": "H", "position": [0.32, 0.905, 0.0], "lone_pairs": 0}
+        {"id": "O", "element": "O", "lone_pairs": 2},
+        {"id": "H", "element": "H", "lone_pairs": 0}
       ],
       "bonds": [
         {"id": "O-H", "from": "O", "to": "H"}
@@ -38,30 +38,15 @@
     },
     "methyl": {
       "atoms": [
-        {"id": "C", "element": "C", "position": [0.0, 0.0, 0.0], "lone_pairs": 0},
-        {"id": "H1", "element": "H", "position": [-0.36, 1.03, 0.0], "lone_pairs": 0},
-        {"id": "H2", "element": "H", "position": [-0.36, -0.515, 0.892], "lone_pairs": 0},
-        {"id": "H3", "element": "H", "position": [-0.36, -0.515, -0.892], "lone_pairs": 0}
+        {"id": "C", "element": "C", "lone_pairs": 0},
+        {"id": "H1", "element": "H", "lone_pairs": 0},
+        {"id": "H2", "element": "H", "lone_pairs": 0},
+        {"id": "H3", "element": "H", "lone_pairs": 0}
       ],
       "bonds": [
-        {
-          "id": "C-H1",
-          "from": "C",
-          "to": "H1",
-          "electron_direction_offsets": [[0.0, 0.0, 0.12], [0.0, 0.0, -0.12]]
-        },
-        {
-          "id": "C-H2",
-          "from": "C",
-          "to": "H2",
-          "electron_direction_offsets": [[0.0, 0.0, 0.12], [0.0, 0.0, -0.12]]
-        },
-        {
-          "id": "C-H3",
-          "from": "C",
-          "to": "H3",
-          "electron_direction_offsets": [[0.0, 0.0, 0.12], [0.0, 0.0, -0.12]]
-        }
+        {"id": "C-H1", "from": "C", "to": "H1"},
+        {"id": "C-H2", "from": "C", "to": "H2"},
+        {"id": "C-H3", "from": "C", "to": "H3"}
       ],
       "ports": {
         "carbon": "C"
@@ -69,7 +54,7 @@
     },
     "ether_oxygen": {
       "atoms": [
-        {"id": "O", "element": "O", "position": [0.0, 0.0, 0.0], "lone_pairs": 2}
+        {"id": "O", "element": "O", "lone_pairs": 2}
       ],
       "ports": {
         "left": "O",
@@ -78,22 +63,12 @@
     },
     "carbonyl": {
       "atoms": [
-        {"id": "C", "element": "C", "position": [0.0, 0.0, 0.0], "lone_pairs": 0},
-        {"id": "O", "element": "O", "position": [0.0, 1.23, 0.0], "lone_pairs": 2}
+        {"id": "C", "element": "C", "lone_pairs": 0},
+        {"id": "O", "element": "O", "lone_pairs": 2}
       ],
       "bonds": [
-        {
-          "id": "C=O:sigma",
-          "from": "C",
-          "to": "O",
-          "electron_direction_offsets": [[0.0, 0.0, 0.12], [0.0, 0.0, -0.12]]
-        },
-        {
-          "id": "C=O:pi",
-          "from": "C",
-          "to": "O",
-          "electron_direction_offsets": [[0.0, 0.0, 0.22], [0.0, 0.0, 0.22]]
-        }
+        {"id": "C=O:sigma", "from": "C", "to": "O"},
+        {"id": "C=O:pi", "from": "C", "to": "O"}
       ],
       "ports": {
         "left": "C",
@@ -105,18 +80,8 @@
     "ethanol": {
       "name": "Ethanol",
       "components": [
-        {
-          "id": "ethyl",
-          "group": "ethyl",
-          "position": [0.0, 0.0, 0.0],
-          "rotation_degrees": [0.0, 0.0, 0.0]
-        },
-        {
-          "id": "hydroxyl",
-          "group": "hydroxyl",
-          "position": [3.0, 0.0, 0.0],
-          "rotation_degrees": [0.0, 0.0, 0.0]
-        }
+        {"id": "ethyl", "group": "ethyl"},
+        {"id": "hydroxyl", "group": "hydroxyl"}
       ],
       "connections": [
         {
@@ -129,24 +94,9 @@
     "dimethyl_ether": {
       "name": "Dimethylether",
       "components": [
-        {
-          "id": "methyl_left",
-          "group": "methyl",
-          "position": [0.0, 0.0, 0.0],
-          "rotation_degrees": [0.0, 0.0, 0.0]
-        },
-        {
-          "id": "oxygen",
-          "group": "ether_oxygen",
-          "position": [1.43, 0.0, 0.0],
-          "rotation_degrees": [0.0, 0.0, 0.0]
-        },
-        {
-          "id": "methyl_right",
-          "group": "methyl",
-          "position": [2.86, 0.0, 0.0],
-          "rotation_degrees": [0.0, 0.0, 180.0]
-        }
+        {"id": "methyl_left", "group": "methyl"},
+        {"id": "oxygen", "group": "ether_oxygen"},
+        {"id": "methyl_right", "group": "methyl"}
       ],
       "connections": [
         {
@@ -164,24 +114,9 @@
     "acetone": {
       "name": "Aceton (Propanon)",
       "components": [
-        {
-          "id": "methyl_left",
-          "group": "methyl",
-          "position": [-1.54, 0.0, 0.0],
-          "rotation_degrees": [0.0, 0.0, 0.0]
-        },
-        {
-          "id": "carbonyl",
-          "group": "carbonyl",
-          "position": [0.0, 0.0, 0.0],
-          "rotation_degrees": [0.0, 0.0, 0.0]
-        },
-        {
-          "id": "methyl_right",
-          "group": "methyl",
-          "position": [1.54, 0.0, 0.0],
-          "rotation_degrees": [0.0, 0.0, 180.0]
-        }
+        {"id": "methyl_left", "group": "methyl"},
+        {"id": "carbonyl", "group": "carbonyl"},
+        {"id": "methyl_right", "group": "methyl"}
       ],
       "connections": [
         {

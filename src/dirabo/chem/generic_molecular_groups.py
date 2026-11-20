@@ -12,6 +12,7 @@ from typing import Any
 from dirabo.chem.math import Vec3
 from dirabo.chem.particles import Atom, Bond, Electron, ElectronPair, Molecule, create_bond
 from dirabo.chem.psystems import create_element
+from dirabo.chem.layout import layout_molecule
 
 
 @dataclass(frozen=True)
@@ -98,13 +99,13 @@ class GenericMolecularGroups:
         self._definition = dict(definition)
         _check_keys(
             self._definition,
-            {"schema_version", "groups", "molecules"},
-            {"$schema"},
+            {"groups", "molecules"},
+            {"$schema", "schema_version"},
             "Konfiguration",
         )
-        if (
-            isinstance(self._definition.get("schema_version"), bool)
-            or self._definition.get("schema_version") != 1
+        if "schema_version" in self._definition and (
+            isinstance(self._definition["schema_version"], bool)
+            or self._definition["schema_version"] != 1
         ):
             raise ValueError("Nicht unterstützte oder fehlende schema_version; erwartet wird 1")
         self._groups = _mapping(self._definition.get("groups"), "groups")
@@ -151,14 +152,15 @@ class GenericMolecularGroups:
                 atom = _mapping(raw_atom, f"Atom {index} in Gruppe {group_name!r}")
                 _check_keys(
                     atom,
-                    {"id", "element", "position"},
-                    {"lone_pairs", "free_electrons"},
+                    {"id", "element"},
+                    {"position", "lone_pairs", "free_electrons"},
                     f"Atom {index} in Gruppe {group_name!r}",
                 )
                 atom_id = _identifier(atom.get("id"), f"id von Atom {index} in Gruppe {group_name!r}")
                 atom_ids.append(atom_id)
                 _identifier(atom.get("element"), f"element von Atom {atom_id!r}")
-                _vector(atom.get("position"), f"position von Atom {atom_id!r}")
+                if "position" in atom:
+                    _vector(atom.get("position"), f"position von Atom {atom_id!r}")
                 if "lone_pairs" in atom and (
                     not isinstance(atom["lone_pairs"], int)
                     or isinstance(atom["lone_pairs"], bool)
@@ -179,7 +181,7 @@ class GenericMolecularGroups:
                 _check_keys(
                     bond,
                     {"id", "from", "to"},
-                    {"electron_direction_offsets"},
+                    set(),
                     f"Bindung {index} in Gruppe {group_name!r}",
                 )
                 bond_id = _identifier(bond.get("id"), f"id von Bindung {index} in Gruppe {group_name!r}")
@@ -188,16 +190,6 @@ class GenericMolecularGroups:
                 second = _identifier(bond.get("to"), f"to von Bindung {bond_id!r}")
                 if first not in known_atoms or second not in known_atoms or first == second:
                     raise ValueError(f"Bindung {bond_id!r} verweist auf ungültige Atome")
-                offsets = bond.get("electron_direction_offsets", [[0.0, 0.0, 0.0]] * 2)
-                if (
-                    not isinstance(offsets, list)
-                    or len(offsets) != 2
-                ):
-                    raise ValueError(
-                        f"electron_direction_offsets von Bindung {bond_id!r} muss zwei Vektoren enthalten"
-                    )
-                for electron_index, offset in enumerate(offsets):
-                    _vector(offset, f"electron_direction_offsets[{electron_index}] von Bindung {bond_id!r}")
             _unique_ids(bond_ids, f"Bindungs-IDs in Gruppe {group_name!r}")
 
             for port_name, raw_atom_id in ports.items():
@@ -310,6 +302,20 @@ class GenericMolecularGroups:
         molecule_id = molecule_name if instance_id is None else instance_id
         _identifier(molecule_id, "instance_id")
         components = tuple(self._parse_component(item) for item in raw_molecule["components"])
+        uses_layout = any(
+            "position" not in atom
+            for group_name in {component.group_name for component in components}
+            for atom in self._groups[group_name].get("atoms", [])
+        ) or any(
+            "position" not in component
+            for component in raw_molecule["components"]
+        )
+        layout_positions: dict[str, Vec3] = {}
+        if uses_layout:
+            layout_positions = {
+                placement.id: tuple(float(value) for value in placement.position)
+                for placement in layout_molecule(raw_molecule, self._groups)
+            }
         atoms_by_component: dict[str, dict[str, Atom]] = {}
         atoms: list[Atom] = []
         bonds: list[Bond] = []
@@ -319,14 +325,19 @@ class GenericMolecularGroups:
         for component in components:
             group = self._groups[component.group_name]
             component_atoms: dict[str, Atom] = {}
+            bond_pair_occurrences: dict[frozenset[str], int] = {}
             for atom_definition in group["atoms"]:
-                local_position = _vector(atom_definition["position"], "Atomposition")
-                position = _rotate_vector(local_position, component.rotation_degrees)
-                position = (
-                    position[0] + component.position[0],
-                    position[1] + component.position[1],
-                    position[2] + component.position[2],
-                )
+                local_atom_id = f"{component.component_id}:{atom_definition['id']}"
+                if uses_layout:
+                    position = layout_positions[local_atom_id]
+                else:
+                    local_position = _vector(atom_definition["position"], "Atomposition")
+                    position = _rotate_vector(local_position, component.rotation_degrees)
+                    position = (
+                        position[0] + component.position[0],
+                        position[1] + component.position[1],
+                        position[2] + component.position[2],
+                    )
                 atom_id = f"{molecule_id}:{component.component_id}:{atom_definition['id']}"
                 particles = create_element(
                     atom_definition["element"],
@@ -352,20 +363,31 @@ class GenericMolecularGroups:
             atoms_by_component[component.component_id] = component_atoms
             for bond_definition in group.get("bonds", []):
                 bond_id = f"{molecule_id}:{component.component_id}:{bond_definition['id']}"
-                direction_offsets = tuple(
-                    _rotate_vector(_vector(offset, "Elektronenoffset"), component.rotation_degrees)
-                    for offset in bond_definition.get(
-                        "electron_direction_offsets",
-                        [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]],
+                first_atom = component_atoms[bond_definition["from"]]
+                second_atom = component_atoms[bond_definition["to"]]
+                atom_pair = frozenset((bond_definition["from"], bond_definition["to"]))
+                occurrence = bond_pair_occurrences.get(atom_pair, 0)
+                bond_pair_occurrences[atom_pair] = occurrence + 1
+
+                if occurrence == 0:
+                    bond = create_bond(
+                        bond_id,
+                        first_atom,
+                        second_atom,
                     )
-                )
-                bond = create_bond(
-                    bond_id,
-                    component_atoms[bond_definition["from"]],
-                    component_atoms[bond_definition["to"]],
-                    electron_z_offsets=(0.0, 0.0),
-                    electron_direction_offsets=direction_offsets,
-                )
+                else:
+                    pi_sign = 1.0 if occurrence % 2 == 1 else -1.0
+                    pi_offset = _rotate_vector(
+                        (0.0, 0.0, 0.22 * pi_sign),
+                        component.rotation_degrees,
+                    )
+                    bond = create_bond(
+                        bond_id,
+                        first_atom,
+                        second_atom,
+                        electron_z_offsets=(0.0, 0.0),
+                        electron_direction_offsets=(pi_offset, pi_offset),
+                    )
                 for electron in bond.electrons:
                     electron.orbit_normal = _rotate_vector(
                         electron.orbit_normal,
